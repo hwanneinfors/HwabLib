@@ -151,7 +151,17 @@ function HwanUI:CreateWindow(title, opts)
     local pages = {}
     local tabList = {}
 
-    local tabScroll = new("ScrollingFrame", {Parent = TabsHolder, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, ScrollBarThickness = 6, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.X, HorizontalScrollBarInset = Enum.ScrollBarInset.Always})
+    local tabScroll = new("ScrollingFrame", {
+    Parent = TabsHolder,
+    Size = UDim2.new(1,0,1,0),
+    Position = UDim2.new(0,0,0,0),
+    BackgroundTransparency = 1,
+    ScrollBarThickness = 0,
+    ScrollBarImageTransparency = 1,
+    CanvasSize = UDim2.new(0,0,0,0),
+    AutomaticCanvasSize = Enum.AutomaticSize.X,
+    HorizontalScrollBarInset = Enum.HorizontalScrollBarInset.Always
+})
     local listLayout = new("UIListLayout", {Parent = tabScroll, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,8), SortOrder = Enum.SortOrder.LayoutOrder})
     listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
@@ -196,31 +206,39 @@ function HwanUI:CreateWindow(title, opts)
             b.MouseButton1Click:Connect(function() if callback then pcall(callback) end tween(b, {BackgroundColor3 = cfg.Theme.Accent}, 0.06) task.wait(0.06) tween(b, {BackgroundColor3 = cfg.Theme.Btn}, 0.12) end)
             return b
         end
+        
+function tab:CreateToggle(label, initial, callback)
+    local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1})
+    local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
+    local toggleBg = new("TextButton", {
+        Parent = frame,
+        Size = UDim2.new(0,46,0,26),
+        Position = UDim2.new(1, -50, 0.5, -13),
+        BackgroundColor3 = cfg.Theme.ToggleBg,
+        BorderSizePixel = 0,
+        AutoButtonColor = false
+    })
+    new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0,12)})
+    local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(255,255,255)})
+    new("UICorner", {Parent = dot, CornerRadius = UDim.new(1,0)})
 
-        function tab:CreateToggle(label, initial, callback)
-            local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1})
-            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
-            local toggleBg = new("TextButton", {Parent = frame, Size = UDim2.new(0,46,0,26), Position = UDim2.new(1, -50, 0.5, -13), BackgroundColor3 = cfg.Theme.ToggleBg, BorderSizePixel = 0, AutoButtonColor=false })
-            new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0,12)})
-            local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = cfg.Theme.Text})
-            new("UICorner", {Parent = dot, CornerRadius = UDim.new(1,0)})
-            local state = initial and true or false
-            local function setState(s, silent)
-                state = s
-                if s then
-                    tween(toggleBg, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
-                    tween(dot, {Position = UDim2.new(1, -22, 0.5, -9)}, 0.12)
-                else
-                    tween(toggleBg, {BackgroundColor3 = cfg.Theme.ToggleBg}, 0.12)
-                    tween(dot, {Position = UDim2.new(0,4,0.5,-9)}, 0.12)
-                end
-                if callback and not silent then pcall(callback, state) end
-            end
-            toggleBg.MouseButton1Click:Connect(function() setState(not state) end)
-            setState(state, true)
-            return {Get = function() return state end, Set = function(v) setState((v and true) or false) end, UI = frame}
+    local state = initial and true or false
+    local function setState(s, silent)
+        state = s
+        if s then
+            tween(toggleBg, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
+            tween(dot, {Position = UDim2.new(1, -22, 0.5, -9), BackgroundColor3 = Color3.fromRGB(255,255,255)}, 0.12)
+        else
+            tween(toggleBg, {BackgroundColor3 = cfg.Theme.ToggleBg}, 0.12)
+            tween(dot, {Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)}, 0.12)
         end
+        if callback and not silent then pcall(callback, state) end
+    end
 
+    toggleBg.MouseButton1Click:Connect(function() setState(not state) end)
+    setState(state, true)
+    return {Get = function() return state end, Set = function(v) setState((v and true) or false) end, UI = frame}
+end
         function tab:CreateLabel(text)
             local l = new("TextLabel", {Parent = self.Content, Size = UDim2.new(1,0,0,20), Text = text, BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
             return l
