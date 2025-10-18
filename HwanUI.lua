@@ -167,7 +167,7 @@ function HwanUI:CreateWindow(title, opts)
         TextSize = 40,
         TextYAlignment = Enum.TextYAlignment.Center,
         TextXAlignment = Enum.TextXAlignment.Center,
-        TextStrokeTransparency = 0,
+        TextStrokeTransparency = 1, -- << FIXED (was 0)
         TextStrokeColor3 = Color3.fromRGB(255,255,255),
         TextTransparency = 0,
         TextColor3 = cfg.Theme.Text
@@ -184,7 +184,7 @@ function HwanUI:CreateWindow(title, opts)
 
     -- Tabs container (under title)
     local TabsFrame = new("Frame", {Parent = TitleFrame, Size = UDim2.new(1,0,0,28), Position = UDim2.new(0,0,0,56), BackgroundTransparency = 1})
-    local TabsHolder = new("Frame", {Parent = TabsFrame, Size = UDim2.new(0, 300, 1, 0), Position = UDim2.new(0.5, -150, 0, 0), BackgroundTransparency = 1})
+    local TabsHolder = new("Frame", {Parent = TabsFrame, Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}) -- << FIXED
 
     -- Divider with shimmer
     local divider0 = new("Frame", {Parent = Frame, Name = "Divider0", Size = UDim2.new(1,-16,0,2), Position = UDim2.new(0,8,0,96), BackgroundColor3 = Color3.fromRGB(45,45,45), BorderSizePixel = 0})
@@ -213,7 +213,8 @@ function HwanUI:CreateWindow(title, opts)
     local hbtnGrad = new("UIGradient", HwanInner); hbtnGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(0,120,255)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,255,255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0,120,255))}); hbtnGrad.Rotation = 0
 
     -- Content area (below tabs)
-    local contentArea = new("Frame", {Parent = Frame, Size = UDim2.new(1,0,1, -(100+28)), Position = UDim2.new(0,0,0,100+28), BackgroundTransparency = 1})
+    local contentYStart = 98 -- Vị trí Y ngay sau cái divider
+    local contentArea = new("Frame", {Parent = Frame, Size = UDim2.new(1,0,1, -contentYStart), Position = UDim2.new(0,0,0,contentYStart), BackgroundTransparency = 1}) -- << FIXED
     new("UIPadding", {Parent = contentArea, PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,12)})
     local pages = {}
     local tabList = {}
@@ -221,7 +222,7 @@ function HwanUI:CreateWindow(title, opts)
     -- Tab scroll (horizontal)
     local tabScroll = new("ScrollingFrame", {Parent = TabsHolder, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, ScrollBarThickness = 6, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.X, HorizontalScrollBarInset = Enum.ScrollBarInset.Always})
     local listLayout = new("UIListLayout", {Parent = tabScroll, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,8), SortOrder = Enum.SortOrder.LayoutOrder})
-    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center -- << FIXED
 
     -- drag-to-scroll for tabs
     do
@@ -483,16 +484,16 @@ function HwanUI:CreateWindow(title, opts)
 
     -- Key system (optional)
     local function createKeyUI(onAuth)
-        local kFrame = new("Frame", {Parent = screenGui, Name = "KeyPrompt", Size = UDim2.new(0, 460, 0, 140), Position = UDim2.new(0.5, -230, 0.38, -70), BackgroundColor3 = Color3.fromRGB(24,24,24), BorderSizePixel = 0, ZIndex = 100, Active = true})
+        local kFrame = new("Frame", {Parent = screenGui, Name = "KeyPrompt", Size = UDim2.new(0, 460, 0, 140), Position = UDim2.new(0.5, -230, 0.38, -70), BackgroundColor3 = cfg.Theme.Main, BorderSizePixel = 0, ZIndex = 100, Active = true}) -- << FIXED
         new("UICorner", {Parent = kFrame, CornerRadius = UDim.new(0,10)})
         local titleLbl = new("TextLabel", {Parent = kFrame, Size = UDim2.new(1, -20, 0, 30), Position = UDim2.new(0,10,0,8), BackgroundTransparency = 1, Font = Enum.Font.FredokaOne, TextSize = 18, Text = cfg.Title .. " | Key System", TextColor3 = cfg.Theme.Text, TextXAlignment = Enum.TextXAlignment.Center})
-        local inputBox = new("TextBox", {Parent = kFrame, Size = UDim2.new(1, -40, 0, 36), Position = UDim2.new(0,20,0,48), PlaceholderText = "Enter your key here!", Font = Enum.Font.SourceSans, TextSize = 18, Text = "", ClearTextOnFocus = false, BackgroundColor3 = Color3.fromRGB(40,40,40), TextColor3 = cfg.Theme.Text, BorderSizePixel = 0})
+        local inputBox = new("TextBox", {Parent = kFrame, Size = UDim2.new(1, -40, 0, 36), Position = UDim2.new(0,20,0,48), PlaceholderText = "Enter your key here!", Font = Enum.Font.SourceSans, TextSize = 18, Text = "", ClearTextOnFocus = false, BackgroundColor3 = cfg.Theme.ToggleBg, TextColor3 = cfg.Theme.Text, BorderSizePixel = 0}) -- << FIXED
         new("UICorner", {Parent = inputBox, CornerRadius = UDim.new(0,6)})
         new("UIPadding", {Parent = inputBox, PaddingLeft = UDim.new(0,12), PaddingRight = UDim.new(0,10)})
 
-        local getBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, -130, 0, 96), BackgroundColor3 = Color3.fromRGB(60,60,60), Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Get key", TextColor3 = cfg.Theme.Text})
+        local getBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, -130, 0, 96), BackgroundColor3 = cfg.Theme.Btn, Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Get key", TextColor3 = cfg.Theme.Text}) -- << FIXED
         new("UICorner", {Parent = getBtn, CornerRadius = UDim.new(0,6)})
-        local checkBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, 10, 0, 96), BackgroundColor3 = Color3.fromRGB(60,60,60), Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Check Key", TextColor3 = cfg.Theme.Text})
+        local checkBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, 10, 0, 96), BackgroundColor3 = cfg.Theme.Btn, Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Check Key", TextColor3 = cfg.Theme.Text}) -- << FIXED
         new("UICorner", {Parent = checkBtn, CornerRadius = UDim.new(0,6)})
         local msg = new("TextLabel", {Parent = kFrame, Size = UDim2.new(1, -20, 0, 18), Position = UDim2.new(0,10,1, -22), BackgroundTransparency = 1, Font = Enum.Font.SourceSans, TextSize = 14, Text = "", TextColor3 = Color3.fromRGB(200,200,200), TextXAlignment = Enum.TextXAlignment.Center})
 
@@ -512,10 +513,7 @@ function HwanUI:CreateWindow(title, opts)
         table.insert(conns, inputBox.FocusLost:Connect(function(enter) if enter then tryKey(inputBox.Text) end end))
 
         -- make draggable
-        local dragging=false; local dragStart; local startPos; local dragInput
-        table.insert(conns, kFrame.InputBegan:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseButton1 then dragging=true; dragStart=input.Position; startPos=kFrame.Position; input.Changed:Connect(function() if input.UserInputState==Enum.UserInputState.End then dragging=false end end) end end))
-        table.insert(conns, kFrame.InputChanged:Connect(function(input) if input.UserInputType==Enum.UserInputType.MouseMovement then dragInput=input end end))
-        table.insert(conns, UserInputService.InputChanged:Connect(function(input) if dragging and input==dragInput then local delta=input.Position-dragStart; kFrame.Position=UDim2.new(startPos.X.Scale, startPos.X.Offset+delta.X, startPos.Y.Scale, startPos.Y.Offset+delta.Y) end end))
+        makeDraggable(kFrame) -- << FIXED (Sử dụng lại hàm, xóa code lặp)
     end
 
     -- public API object: window
