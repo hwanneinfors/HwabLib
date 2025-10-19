@@ -174,7 +174,7 @@ function HwanUI:CreateWindow(title, opts)
         Position = UDim2.new(0,0,0,4),
         BackgroundTransparency = 1,
         Text = string.upper(cfg.Title),
-        Font = Enum.Font.BurbankSmallCondensed, -- bold-ish condensed
+        Font = Enum.Font.LuckiestGuy, -- bold-ish condensed
         TextSize = 44,
         TextYAlignment = Enum.TextYAlignment.Center,
         TextXAlignment = Enum.TextXAlignment.Center,
