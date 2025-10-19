@@ -1,4 +1,4 @@
--- HwanUI.lua (fixed v1.2 - slider/button/dropdown polish + follow panel + smooth effects)
+-- HwanUI.lua (fixed v1.3: dropdown toggle/close-on-select, panel follow+restore, slider lock-drag, UI polish)
 local HwanUI = {}
 HwanUI.__index = HwanUI
 
@@ -68,6 +68,7 @@ local function darkenColor(c, amt)
     return Color3.new(clamp(c.R - amt, 0, 1), clamp(c.G - amt, 0, 1), clamp(c.B - amt, 0, 1))
 end
 
+-- cleanup previous
 if _G.HwanHubData then
     if _G.HwanHubData.conns then
         for _, c in ipairs(_G.HwanHubData.conns) do
@@ -135,6 +136,7 @@ function HwanUI:CreateWindow(title, opts)
     screenGui.Parent = host
     protectGui(screenGui)
 
+    -- Main frame
     local Frame = new("Frame", {
         Parent = screenGui,
         Name = "Main",
@@ -150,6 +152,7 @@ function HwanUI:CreateWindow(title, opts)
     frameStroke.Transparency = 0.8
     frameStroke.Color = Color3.fromRGB(255,255,255)
 
+    -- Title + stroke
     local TitleFrame = new("Frame", {Parent = Frame, Size = UDim2.new(1, -16, 0, 100), Position = UDim2.new(0,8,0,8), BackgroundTransparency = 1})
     local TitleMain = new("TextLabel", {
         Parent = TitleFrame,
@@ -166,6 +169,12 @@ function HwanUI:CreateWindow(title, opts)
         TextTransparency = 0,
         TextColor3 = cfg.Theme.Accent
     })
+    -- UIStroke on title for stronger outline
+    local titleStroke = new("UIStroke", {Parent = TitleMain})
+    titleStroke.Color = Color3.fromRGB(0,0,0)
+    titleStroke.Thickness = 2
+    titleStroke.Transparency = 0
+
     local titleGrad = new("UIGradient", {Parent = TitleMain})
     titleGrad.Color = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
@@ -174,14 +183,16 @@ function HwanUI:CreateWindow(title, opts)
     })
     titleGrad.Rotation = 0
 
+    -- Tabs container (under title)
     local TabsFrame = new("Frame", {Parent = TitleFrame, Size = UDim2.new(1,0,0,36), Position = UDim2.new(0,0,0,56), BackgroundTransparency = 1})
     local TabsHolder = new("Frame", {Parent = TabsFrame, Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1})
     new("UICorner", {Parent = TabsHolder, CornerRadius = UDim.new(0,8)})
 
-    local dividerY = 100 -- nhích lên tí (giảm khoảng cách)
+    local dividerY = 100 -- nhích lên chút để khoảng cách nhỏ hơn
     local divider0 = new("Frame", {Parent = Frame, Name = "Divider0", Size = UDim2.new(1,-16,0,2), Position = UDim2.new(0,8,0,dividerY), BackgroundColor3 = Color3.fromRGB(45,45,45), BorderSizePixel = 0})
     divider0.ClipsDescendants = true
 
+    -- InfoBar + HwanBtn (unchanged)
     local InfoBar = new("Frame", {Parent = screenGui, Name = "InfoBar", Size = UDim2.new(0, 360, 0, 36), Position = UDim2.new(1, -376, 0, 16), BackgroundColor3 = cfg.Theme.InfoBg, BorderSizePixel = 0, ZIndex = 50})
     new("UICorner", {Parent = InfoBar, CornerRadius = UDim.new(0,8)})
     InfoBar.BackgroundTransparency = 0.06
@@ -193,15 +204,8 @@ function HwanUI:CreateWindow(title, opts)
     new("UICorner", {Parent = HwanBtn, CornerRadius = UDim.new(0,10)})
     local HwanInner = new("Frame", {Parent = HwanBtn, Size = UDim2.new(1,-8,1,-8), Position = UDim2.new(0,4,0,4), BackgroundColor3 = InfoInner.BackgroundColor3, BorderSizePixel = 0, ZIndex = 61})
     new("UICorner", {Parent = HwanInner, CornerRadius = UDim.new(0,8)})
-    local HwanTop = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.4,0), Position = UDim2.new(0,0,0,7), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = string.sub(cfg.Title,1,4):upper(), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 62, TextTransparency = 0, TextScaled = true})
-    local HwanBottom = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.4,0), Position = UDim2.new(0,0,0.5,5), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = "HUB", TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 62, TextTransparency = 0, TextScaled = true})
-    local h_g_top = new("UIGradient", {Parent = HwanTop})
-    h_g_top.Color = titleGrad.Color
-    h_g_top.Rotation = 0
-    local h_g_bottom = new("UIGradient", {Parent = HwanBottom})
-    h_g_bottom.Color = titleGrad.Color
-    h_g_bottom.Rotation = 0
 
+    -- Content area
     local contentYStart = dividerY + 6
     local contentArea = new("Frame", {Parent = Frame, Size = UDim2.new(1,0,1, -contentYStart), Position = UDim2.new(0,0,0,contentYStart), BackgroundTransparency = 1})
     new("UIPadding", {Parent = contentArea, PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), PaddingTop = UDim.new(0,4), PaddingBottom = UDim.new(0,12)})
@@ -209,6 +213,7 @@ function HwanUI:CreateWindow(title, opts)
     local tabList = {}
     local darkTabText = darkenColor(cfg.Theme.Text, 0.18)
 
+    -- Tab scroll (tab height reduced to 32)
     local tabScroll = new("ScrollingFrame", {Parent = TabsHolder, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, ScrollBarThickness = 0, ScrollBarImageTransparency = 1, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.X, HorizontalScrollBarInset = Enum.ScrollBarInset.Always})
     local padding = 8
     local listLayout = new("UIListLayout", {Parent = tabScroll, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,padding), SortOrder = Enum.SortOrder.LayoutOrder})
@@ -221,10 +226,10 @@ function HwanUI:CreateWindow(title, opts)
         local fixedSlots = 4
         local totalPaddingFor4 = padding * (fixedSlots + 1)
         local slotWidth = math.floor((avail - totalPaddingFor4) / fixedSlots)
-        slotWidth = clamp(slotWidth, 64, 180)
+        slotWidth = clamp(slotWidth, 64, 220)
         for _, t in ipairs(tabList) do
             if t and t.Button then
-                t.Button.Size = UDim2.new(0, slotWidth, 0, 36)
+                t.Button.Size = UDim2.new(0, slotWidth, 0, 32)
             end
         end
         local totalWidth = padding * (#tabList + 1) + #tabList * slotWidth
@@ -241,6 +246,7 @@ function HwanUI:CreateWindow(title, opts)
     table.insert(conns, tabScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() updateTabsLayout() end))
     task.defer(function() pcall(updateTabsLayout) end)
 
+    -- drag-to-scroll for tabs (unchanged)
     do
         local dragging = false
         local dragStart = Vector2.new()
@@ -288,7 +294,7 @@ function HwanUI:CreateWindow(title, opts)
         end)
     end
 
-    -- prevent window drag while interacting with slider (flag controlled by slider)
+    -- prevent window drag while interacting with slider
     local preventWindowDrag = false
 
     local function createTab(name)
@@ -296,7 +302,7 @@ function HwanUI:CreateWindow(title, opts)
         local btn = new("TextButton", {
             Parent = tabScroll,
             Text = name,
-            Size = UDim2.new(0, 96, 0, 36),
+            Size = UDim2.new(0, 96, 0, 32),
             BackgroundColor3 = cfg.Theme.TabBg,
             TextColor3 = darkTabText,
             Font = Enum.Font.SourceSansBold,
@@ -306,7 +312,7 @@ function HwanUI:CreateWindow(title, opts)
             AutoButtonColor = false,
             BorderSizePixel = 0
         })
-        new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,10)})
+        new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,8)})
 
         local content = new("Frame", {Parent = contentArea, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,6), BackgroundTransparency = 1, Visible = false})
         new("UIListLayout", {Parent = content, FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0,10)})
@@ -326,11 +332,15 @@ function HwanUI:CreateWindow(title, opts)
         end end)
         table.insert(conns, leaveConn)
 
+        -- Button: label left, button right (button wider a bit, text centered)
         function tab:CreateButton(label, callback)
             local row = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1})
-            local lbl = new("TextLabel", {Parent = row, Text = label, Size = UDim2.new(0.65, -8, 1, 0), Position = UDim2.new(0,8,0,0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
-            local b = new("TextButton", {Parent = row, Size = UDim2.new(0.32, -8, 1, 0), Position = UDim2.new(0.68, 4, 0, 0), BackgroundColor3 = cfg.Theme.Btn, TextColor3 = cfg.Theme.Text, Text = label, Font = Enum.Font.SourceSansBold, TextSize = 14, AutoButtonColor=false})
+            local lbl = new("TextLabel", {Parent = row, Text = label, Size = UDim2.new(0.60, -8, 1, 0), Position = UDim2.new(0,8,0,0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
+            local b = new("TextButton", {Parent = row, Size = UDim2.new(0.36, -8, 1, 0), Position = UDim2.new(0.64, 4, 0, 0), BackgroundColor3 = cfg.Theme.Btn, TextColor3 = cfg.Theme.Text, Text = label, Font = Enum.Font.SourceSansBold, TextSize = 14, AutoButtonColor=false})
             new("UICorner", {Parent = b, CornerRadius = UDim.new(0,8)})
+            b.TextScaled = true
+            b.TextWrapped = false
+            b.TextXAlignment = Enum.TextXAlignment.Center
             local be = b.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(b, {BackgroundColor3 = brightenColor(cfg.Theme.Btn, 0.06)}, 0.12) end end)
             table.insert(conns, be)
             local bl = b.MouseLeave:Connect(function() tween(b, {BackgroundColor3 = cfg.Theme.Btn}, 0.12) end)
@@ -345,13 +355,14 @@ function HwanUI:CreateWindow(title, opts)
             return b
         end
 
+        -- Toggle: revert to compact style (small dot)
         function tab:CreateToggle(label, initial, callback)
             local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1})
-            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(0.65, -8, 1, 0), Position = UDim2.new(0,8,0,0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
-            local toggleBg = new("Frame", {Parent = frame, Size = UDim2.new(0.32, -8,0,26), Position = UDim2.new(0.68, 4, 0.5, -13), BackgroundColor3 = cfg.Theme.ToggleBg, BorderSizePixel = 0})
+            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
+            local toggleBg = new("Frame", {Parent = frame, Size = UDim2.new(0,46,0,26), Position = UDim2.new(1, -50, 0.5, -13), BackgroundColor3 = cfg.Theme.ToggleBg, BorderSizePixel = 0})
             new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0,12)})
             local dotOffColor = darkenColor(Color3.fromRGB(200,200,200), 0.16)
-            local dotOnColor  = brightenColor(cfg.Theme.Accent, 0.0)
+            local dotOnColor  = brightenColor(cfg.Theme.Accent, 0)
             local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = dotOffColor})
             new("UICorner", {Parent = dot, CornerRadius = UDim.new(1,0)})
 
@@ -387,20 +398,29 @@ function HwanUI:CreateWindow(title, opts)
             return sec
         end
 
-        -- Dropdown: button toggles panel; panel follows Frame; animation; close on outside or ESC
+        -- Dropdown: toggle panel; select closes panel; follow frame; remembers open state
         function tab:CreateDropdown(label, options, callback)
             options = options or {}
             local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1})
-            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(0.65, -8, 1, 0), Position = UDim2.new(0,8,0,0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
-            local btn = new("TextButton", {Parent = frame, Size = UDim2.new(0.32, -8, 1, 0), Position = UDim2.new(0.68, 4, 0, 0), BackgroundColor3 = cfg.Theme.Btn, Text = "Select", Font = Enum.Font.SourceSansBold, TextSize = 14, TextColor3 = cfg.Theme.Text, AutoButtonColor = false})
+            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(0.60, -8, 1, 0), Position = UDim2.new(0,8,0,0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
+            local btn = new("TextButton", {Parent = frame, Size = UDim2.new(0.36, -8, 1, 0), Position = UDim2.new(0.64, 4, 0, 0), BackgroundColor3 = cfg.Theme.Btn, Text = "Select", Font = Enum.Font.SourceSansBold, TextSize = 14, TextColor3 = cfg.Theme.Text, AutoButtonColor = false})
             new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,8)})
+            btn.TextScaled = true
+            btn.TextWrapped = false
+            btn.TextXAlignment = Enum.TextXAlignment.Center
+            btn.TextYAlignment = Enum.TextYAlignment.Center
 
-            local panel, outsideConn, escConn, followConn
+            local panel, outsideConn, escConn, followConn, visConn
+            local panelOpen = false
+            local shouldReopen = false
 
             local function closePanel()
+                panelOpen = false
+                shouldReopen = false
                 if followConn then pcall(function() followConn:Disconnect() end) end
                 if outsideConn then pcall(function() outsideConn:Disconnect() end) end
                 if escConn then pcall(function() escConn:Disconnect() end) end
+                if visConn then pcall(function() visConn:Disconnect() end) end
                 if panel and panel.Parent then
                     pcall(function()
                         tween(panel, {BackgroundTransparency = 1}, 0.12)
@@ -414,9 +434,6 @@ function HwanUI:CreateWindow(title, opts)
                     end)
                 end
                 panel = nil
-                outsideConn = nil
-                escConn = nil
-                followConn = nil
             end
 
             local function updatePanelPos()
@@ -427,7 +444,7 @@ function HwanUI:CreateWindow(title, opts)
                     local x = absX + Frame.AbsoluteSize.X + 8
                     local y = absY + (TitleFrame.AbsoluteSize.Y or 0) + 8
                     local screenSize = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
-                    local panelW, panelH = 180, (24 + #options*32)
+                    local panelW, panelH = 220, (24 + #options*32)
                     x = math.clamp(x, 8, screenSize.X - panelW - 8)
                     y = math.clamp(y, 8, screenSize.Y - panelH - 8)
                     tween(panel, {Position = UDim2.new(0, x, 0, y)}, 0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -435,30 +452,34 @@ function HwanUI:CreateWindow(title, opts)
             end
 
             local function showPanel()
-                if panel and panel.Parent then closePanel() end
-                panel = new("Frame", {Parent = screenGui, Size = UDim2.new(0,180,0, 24 + #options*32), BackgroundColor3 = cfg.Theme.InfoInner, ZIndex = 200, BackgroundTransparency = 1})
+                if panel and panel.Parent then
+                    closePanel()
+                    return
+                end
+                panel = new("Frame", {Parent = screenGui, Size = UDim2.new(0,220,0, 24 + #options*32), BackgroundColor3 = cfg.Theme.InfoInner, ZIndex = 200, BackgroundTransparency = 1})
                 new("UICorner", {Parent = panel, CornerRadius = UDim.new(0,8)})
-                -- immediate position then animate to final to avoid teleport
                 pcall(function()
                     local absX = Frame.AbsolutePosition.X
                     local absY = Frame.AbsolutePosition.Y
                     local x = absX + Frame.AbsoluteSize.X + 8
                     local y = absY + (TitleFrame.AbsoluteSize.Y or 0) + 8
                     local screenSize = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
-                    local panelW, panelH = 180, (24 + #options*32)
+                    local panelW, panelH = 220, (24 + #options*32)
                     x = math.clamp(x, 8, screenSize.X - panelW - 8)
                     y = math.clamp(y, 8, screenSize.Y - panelH - 8)
-                    panel.Position = UDim2.new(0, x, 0, y + 8) -- start slightly lower
+                    panel.Position = UDim2.new(0, x, 0, y + 8)
                 end)
                 for i, opt in ipairs(options) do
                     local row = new("TextButton", {Parent = panel, Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0,6,0, 8 + (i-1)*32), BackgroundColor3 = cfg.Theme.InfoInner, Text = tostring(opt), Font = Enum.Font.SourceSansBold, TextSize = 15, TextColor3 = cfg.Theme.Text, AutoButtonColor = false})
                     new("UICorner", {Parent = row, CornerRadius = UDim.new(0,6)})
                     row.TextTransparency = 1
+                    row.TextScaled = false
                     row.MouseEnter:Connect(function() tween(row, {BackgroundColor3 = brightenColor(cfg.Theme.InfoInner, 0.06)}, 0.12) end)
                     row.MouseLeave:Connect(function() tween(row, {BackgroundColor3 = cfg.Theme.InfoInner}, 0.12) end)
                     row.MouseButton1Click:Connect(function()
                         if callback then pcall(callback, opt) end
                         btn.Text = tostring(opt)
+                        -- close panel on selection
                         closePanel()
                     end)
                 end
@@ -469,13 +490,22 @@ function HwanUI:CreateWindow(title, opts)
                         tween(child, {TextTransparency = 0}, 0.18)
                     end
                 end
+                panelOpen = true
 
                 -- follow panel when frame moves
                 followConn = Frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(updatePanelPos)
                 table.insert(conns, followConn)
-                -- hide when Frame visibility false
-                local visConn = Frame:GetPropertyChangedSignal("Visible"):Connect(function()
-                    if not Frame.Visible then closePanel() end
+                -- hide when Frame visibility changes; remember shouldReopen
+                visConn = Frame:GetPropertyChangedSignal("Visible"):Connect(function()
+                    if not Frame.Visible and panel then
+                        shouldReopen = true
+                        closePanel()
+                    elseif Frame.Visible and shouldReopen then
+                        -- reopen if constructor still in scope
+                        shouldReopen = false
+                        -- recreate panel (we need options and callback)
+                        showPanel()
+                    end
                 end)
                 table.insert(conns, visConn)
 
@@ -508,7 +538,7 @@ function HwanUI:CreateWindow(title, opts)
             return {UI = frame, Set = function(v) btn.Text = tostring(v) end}
         end
 
-        -- Slider: horizontal row (label left, bar right); prevent window drag while dragging
+        -- Slider: label left, bar right; knob default left; lock window drag while dragging
         function tab:CreateSlider(label, minVal, maxVal, default, callback)
             minVal = minVal or 0; maxVal = maxVal or 100; default = (default == nil) and minVal or default
             local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1})
@@ -525,7 +555,6 @@ function HwanUI:CreateWindow(title, opts)
                 p = clamp(p, 0, 1)
                 local value = minVal + (maxVal - minVal) * p
                 if not skipTween then
-                    -- smooth update
                     pcall(function()
                         tween(fill, {Size = UDim2.new(p,0,1,0)}, 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                         tween(knob, {Position = UDim2.new(p, -7, 0.5, -7)}, 0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -542,8 +571,6 @@ function HwanUI:CreateWindow(title, opts)
             setValueFromPercent(defaultPct, true)
 
             local dragging = false
-            local inputChangedConn, inputEndConn
-
             knob.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragging = true
@@ -557,7 +584,7 @@ function HwanUI:CreateWindow(title, opts)
                 end
             end)
 
-            inputChangedConn = UserInputService.InputChanged:Connect(function(input)
+            local moveConn = UserInputService.InputChanged:Connect(function(input)
                 if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                     local absX = input.Position.X
                     local left = barBg.AbsolutePosition.X
@@ -566,9 +593,9 @@ function HwanUI:CreateWindow(title, opts)
                     setValueFromPercent(pct, true)
                 end
             end)
-            table.insert(conns, inputChangedConn)
+            table.insert(conns, moveConn)
 
-            -- also handle clicks on barBg to jump to position
+            -- click on bar to jump
             local barClickConn = barBg.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
                     local mouse = LocalPlayer and LocalPlayer:GetMouse()
@@ -595,10 +622,8 @@ function HwanUI:CreateWindow(title, opts)
         local clickConn = btn.MouseButton1Click:Connect(function()
             for _,t in ipairs(tabList) do
                 if t.Content and t.Content.Visible then
-                    -- hide current page smoothly
-                    local cur = t.Content
-                    pcall(function() tween(cur, {Position = UDim2.new(0,0,0,6)}, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In) end)
-                    cur.Visible = false
+                    tween(t.Content, {Position = UDim2.new(0,0,0,6)}, 0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+                    t.Content.Visible = false
                 end
                 if t.Button then tween(t.Button, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12) end
                 if t.Button then t.Button.TextColor3 = darkTabText end
@@ -662,12 +687,12 @@ function HwanUI:CreateWindow(title, opts)
     makeDraggable(InfoBar)
     makeDraggable(HwanBtn)
 
+    -- HwanBtn toggles main visibility (animate size)
     local visible = true
     local hwanConn = HwanBtn.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             visible = not visible
             Frame.Visible = visible
-            -- animate main hide/show
             if visible then
                 tween(Frame, {Size = UDim2.new(0, cfg.Width, 0, cfg.Height)}, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
             else
@@ -682,6 +707,7 @@ function HwanUI:CreateWindow(title, opts)
     end)
     table.insert(conns, hwanConn)
 
+    -- Hotkey toggle
     local altConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
         local keycode = cfg.ToggleKey or Enum.KeyCode.LeftAlt
@@ -695,14 +721,15 @@ function HwanUI:CreateWindow(title, opts)
     end)
     table.insert(conns, altConn)
 
+    -- InfoBar update & gradient rotate
     local pingSamples = {}
     local maxPingSamples = 30
     local pingTimer = 0
     local pingInterval = 0.25
     local renderConn = RunService.RenderStepped:Connect(function(dt)
         if titleGrad then titleGrad.Rotation = (titleGrad.Rotation + 0.9) % 360 end
-        if h_g_top then h_g_top.Rotation = (h_g_top.Rotation + 1.2) % 360 end
-        if h_g_bottom then h_g_bottom.Rotation = (h_g_bottom.Rotation + 1.2) % 360 end
+        if h_g_top then pcall(function() h_g_top.Rotation = (h_g_top.Rotation + 1.2) % 360 end) end
+        if h_g_bottom then pcall(function() h_g_bottom.Rotation = (h_g_bottom.Rotation + 1.2) % 360 end) end
 
         local timeStr = os.date("%H:%M:%S")
         local fps = 0
@@ -739,8 +766,8 @@ function HwanUI:CreateWindow(title, opts)
     end)
     table.insert(conns, renderConn)
 
+    -- Notifications (smooth)
     local finalSize = UDim2.new(0, cfg.Width, 0, cfg.Height)
-
     local notifTweenTime = 0.12
     local function processNextNotification()
         if notifShowing then return end
@@ -776,6 +803,7 @@ function HwanUI:CreateWindow(title, opts)
         processNextNotification()
     end
 
+    -- Key UI (unchanged)
     local function createKeyUI(onAuth)
         local kFrame = new("Frame", {Parent = screenGui, Name = "KeyPrompt", Size = UDim2.new(0, 460, 0, 140), Position = UDim2.new(0.5, -230, 0.38, -70), BackgroundColor3 = cfg.Theme.Main, BorderSizePixel = 0, ZIndex = 100, Active = true})
         new("UICorner", {Parent = kFrame, CornerRadius = UDim.new(0,10)})
@@ -830,11 +858,10 @@ function HwanUI:CreateWindow(title, opts)
     function window:SetVisible(v)
         Frame.Visible = v
         if not v then
-            -- close any floating panels (we close panels by sending Frame.Visible false)
+            -- hide floating panels and mark to not reopen globally
             for _,obj in ipairs(screenGui:GetChildren()) do
-                if obj.Name ~= screenGui.Name and obj ~= Frame and obj ~= InfoBar and obj ~= HwanBtn then
-                    -- best-effort: destroy floating frames parented to screenGui (e.g. panels)
-                    pcall(function() if obj:IsA("Frame") then obj:Destroy() end end)
+                if obj:IsA("Frame") and obj ~= Frame and obj ~= InfoBar and obj ~= HwanBtn then
+                    pcall(function() obj:Destroy() end)
                 end
             end
         end
