@@ -1,4 +1,4 @@
--- HwanUI.lua
+-- HwanUI.lua (visual update: no gradients, rounded tabs, centered tab text, adjusted hover/select/toggle)
 -- Executor-ready UI module based on HWAN HUB design
 -- Usage:
 -- local HwanUI = loadstring(game:HttpGet("RAW_URL"))()
@@ -67,6 +67,16 @@ end
 
 local function clamp(v,a,b) if v < a then return a end if v > b then return b end return v end
 
+-- color helpers (Color3 uses 0..1)
+local function brightenColor(c, amt)
+    amt = amt or 0.06
+    return Color3.new(clamp(c.R + amt, 0, 1), clamp(c.G + amt, 0, 1), clamp(c.B + amt, 0, 1))
+end
+local function darkenColor(c, amt)
+    amt = amt or 0.08
+    return Color3.new(clamp(c.R - amt, 0, 1), clamp(c.G - amt, 0, 1), clamp(c.B - amt, 0, 1))
+end
+
 -- Clean old UI if present
 if _G.HwanHubData then
     -- disconnect saved connections
@@ -95,15 +105,15 @@ local DEFAULT = {
     KeyUrl = nil, -- optional URL copied to clipboard when Get key clicked
     Theme = {
         Main = Color3.fromRGB(18,18,18),
-        TabBg = Color3.fromRGB(50,50,50),
-        Accent = Color3.fromRGB(0,120,255),
+        TabBg = Color3.fromRGB(40,40,40),
+        Accent = Color3.fromRGB(245,245,245), -- accent used for text stroke / minor highlights
         Text = Color3.fromRGB(235,235,235),
         InfoBg = Color3.fromRGB(10,10,10),
         InfoInner = Color3.fromRGB(18,18,18),
         Btn = Color3.fromRGB(50,50,50),
         ToggleBg = Color3.fromRGB(80,80,80),
     },
-    Corner = UDim.new(0,10)
+    Corner = UDim.new(0,12)
 }
 
 -- Create main window
@@ -147,7 +157,7 @@ function HwanUI:CreateWindow(title, opts)
     local frameStroke = new("UIStroke", Frame)
     frameStroke.Thickness = 2
     frameStroke.Transparency = 0.8
-    frameStroke.Color = Color3.fromRGB(40,40,40)
+    frameStroke.Color = Color3.fromRGB(255,255,255) -- white border for contrast
 
     -- TITLE AREA
     local TitleFrame = new("Frame", {
@@ -157,42 +167,32 @@ function HwanUI:CreateWindow(title, opts)
         BackgroundTransparency = 1
     })
 
-    -- Big title label with gradient
+    -- Big title label: text same color as background, white stroke (outline)
     local TitleMain = new("TextLabel", {
         Parent = TitleFrame,
         Size = UDim2.new(1,0,0,54),
         Position = UDim2.new(0,0,0,4),
         BackgroundTransparency = 1,
         Text = string.upper(cfg.Title),
-        Font = Enum.Font.LuckiestGuy,
-        TextSize = 40,
+        Font = Enum.Font.BurbankSmallCondensed, -- bold-ish condensed
+        TextSize = 44,
         TextYAlignment = Enum.TextYAlignment.Center,
         TextXAlignment = Enum.TextXAlignment.Center,
-        TextStrokeTransparency = 1, -- << FIXED (was 0)
+        TextStrokeTransparency = 0, -- stroke visible
         TextStrokeColor3 = Color3.fromRGB(255,255,255),
         TextTransparency = 0,
-        TextColor3 = cfg.Theme.Text
+        TextColor3 = cfg.Theme.Main -- same as background so fill blends; stroke remains white
     })
-
-    local titleGrad = new("UIGradient", TitleMain)
-    titleGrad.Color = ColorSequence.new{
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(20,60,200)),
-        ColorSequenceKeypoint.new(0.45, Color3.fromRGB(235,235,255)),
-        ColorSequenceKeypoint.new(0.55, Color3.fromRGB(20,60,200)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0))
-    }
-    titleGrad.Rotation = 0
+    -- remove gradients entirely (no UIGradient)
 
     -- Tabs container (under title)
-    local TabsFrame = new("Frame", {Parent = TitleFrame, Size = UDim2.new(1,0,0,28), Position = UDim2.new(0,0,0,56), BackgroundTransparency = 1})
-    local TabsHolder = new("Frame", {Parent = TabsFrame, Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}) -- << FIXED
+    local TabsFrame = new("Frame", {Parent = TitleFrame, Size = UDim2.new(1,0,0,36), Position = UDim2.new(0,0,0,56), BackgroundTransparency = 1})
+    local TabsHolder = new("Frame", {Parent = TabsFrame, Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1, ClipsDescendants = true})
+    new("UICorner", {Parent = TabsHolder, CornerRadius = UDim.new(0,10)}) -- round the holder so tabs appear fully rounded
 
-    -- Divider with shimmer
+    -- Divider (subtle)
     local divider0 = new("Frame", {Parent = Frame, Name = "Divider0", Size = UDim2.new(1,-16,0,2), Position = UDim2.new(0,8,0,96), BackgroundColor3 = Color3.fromRGB(45,45,45), BorderSizePixel = 0})
     divider0.ClipsDescendants = true
-    local divider0Shimmer = new("Frame", {Parent = divider0, Name = "Shimmer", Size = UDim2.new(0.18,0,1,0), Position = UDim2.new(-0.3,0,0,0), BackgroundColor3 = Color3.fromRGB(255,255,255), BackgroundTransparency = 0.92})
-    local shimmerGrad = new("UIGradient", divider0Shimmer)
-    shimmerGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200,200,200)), ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))})
 
     -- InfoBar (time/fps/ping)
     local InfoBar = new("Frame", {Parent = screenGui, Name = "InfoBar", Size = UDim2.new(0, 360, 0, 36), Position = UDim2.new(1, -376, 0, 16), BackgroundColor3 = cfg.Theme.InfoBg, BorderSizePixel = 0, ZIndex = 50})
@@ -219,13 +219,11 @@ function HwanUI:CreateWindow(title, opts)
     new("UICorner", {Parent = HwanInner, CornerRadius = UDim.new(0,8)})
     local HwanTop = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.4,0), Position = UDim2.new(0,0,0,7), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = string.sub(cfg.Title,1,4):upper(), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 62, TextTransparency = 0, TextScaled = true})
     local HwanBottom = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.4,0), Position = UDim2.new(0,0,0.5,5), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = "HUB", TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 62, TextTransparency = 0, TextScaled = true})
-    local h_g_top = new("UIGradient", HwanTop); h_g_top.Color = titleGrad.Color; h_g_top.Rotation = 0
-    local h_g_bottom = new("UIGradient", HwanBottom); h_g_bottom.Color = titleGrad.Color; h_g_bottom.Rotation = 0
-    local hbtnGrad = new("UIGradient", HwanInner); hbtnGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(0,120,255)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255,255,255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0,120,255))}); hbtnGrad.Rotation = 0
+    -- no gradients for icon
 
     -- Content area (below tabs)
-    local contentYStart = 98 -- Vị trí Y ngay sau cái divider
-    local contentArea = new("Frame", {Parent = Frame, Size = UDim2.new(1,0,1, -contentYStart), Position = UDim2.new(0,0,0,contentYStart), BackgroundTransparency = 1}) -- << FIXED
+    local contentYStart = 98 -- Y position after divider
+    local contentArea = new("Frame", {Parent = Frame, Size = UDim2.new(1,0,1, -contentYStart), Position = UDim2.new(0,0,0,contentYStart), BackgroundTransparency = 1})
     new("UIPadding", {Parent = contentArea, PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,12)})
     local pages = {}
     local tabList = {}
@@ -233,7 +231,7 @@ function HwanUI:CreateWindow(title, opts)
     -- Tab scroll (horizontal)
     local tabScroll = new("ScrollingFrame", {Parent = TabsHolder, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, ScrollBarThickness = 0, ScrollBarImageTransparency = 1, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.X, HorizontalScrollBarInset = Enum.ScrollBarInset.Always})
     local listLayout = new("UIListLayout", {Parent = tabScroll, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,8), SortOrder = Enum.SortOrder.LayoutOrder})
-    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center -- << FIXED
+    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
     -- drag-to-scroll for tabs
     do
@@ -279,15 +277,19 @@ function HwanUI:CreateWindow(title, opts)
             BackgroundColor3 = cfg.Theme.TabBg,
             TextColor3 = cfg.Theme.Text,
             Font = Enum.Font.Gotham,
-            TextSize = 15,
+            TextSize = 16, -- slightly larger
+            TextXAlignment = Enum.TextXAlignment.Center,
+            TextYAlignment = Enum.TextYAlignment.Center,
             AutoButtonColor = false,
             BorderSizePixel = 0
         })
-        new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,8)})
-        local eConn = btn.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(btn, {BackgroundColor3 = cfg.Theme.Accent}, 0.12) end end)
-        table.insert(conns, eConn)
-        local lConn = btn.MouseLeave:Connect(function() tween(btn, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12) end)
-        table.insert(conns, lConn)
+        new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,10)}) -- round all 4 corners for each tab
+
+        -- hover: brighten a little; leave uses original TabBg
+        local enterConn = btn.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(btn, {BackgroundColor3 = brightenColor(cfg.Theme.TabBg, 0.06)}, 0.12) end end)
+        table.insert(conns, enterConn)
+        local leaveConn = btn.MouseLeave:Connect(function() tween(btn, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12) end)
+        table.insert(conns, leaveConn)
 
         local content = new("Frame", {Parent = contentArea, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false})
         local layout = new("UIListLayout", {Parent = content, FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0,10)})
@@ -298,11 +300,17 @@ function HwanUI:CreateWindow(title, opts)
         local tab = {Name = name, Button = btn, Content = content}
 
         function tab:CreateButton(label, callback)
-            local b = new("TextButton", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundColor3 = cfg.Theme.Btn, TextColor3 = cfg.Theme.Text, Text = label, Font = Enum.Font.Gotham, TextSize = 15, AutoButtonColor=false })
-            new("UICorner", {Parent = b, CornerRadius = UDim.new(0,8)})
+            local b = new("TextButton", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundColor3 = cfg.Theme.Btn, TextColor3 = cfg.Theme.Text, Text = label, Font = Enum.Font.Gotham, TextSize = 16, AutoButtonColor=false })
+            new("UICorner", {Parent = b, CornerRadius = UDim.new(0,10)})
+            -- hover lighten slightly
+            local be = b.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(b, {BackgroundColor3 = brightenColor(cfg.Theme.Btn, 0.06)}, 0.12) end end)
+            table.insert(conns, be)
+            local bl = b.MouseLeave:Connect(function() tween(b, {BackgroundColor3 = cfg.Theme.Btn}, 0.12) end)
+            table.insert(conns, bl)
             local clickConn = b.MouseButton1Click:Connect(function()
                 if callback then pcall(callback) end
-                tween(b, {BackgroundColor3 = cfg.Theme.Accent}, 0.06)
+                -- click flash: brighten then back
+                tween(b, {BackgroundColor3 = brightenColor(cfg.Theme.Btn, 0.12)}, 0.06)
                 task.wait(0.06)
                 tween(b, {BackgroundColor3 = cfg.Theme.Btn}, 0.12)
             end)
@@ -313,14 +321,12 @@ function HwanUI:CreateWindow(title, opts)
         function tab:CreateToggle(label, initial, callback)
             local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1})
             local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
-            local toggleBg = new("TextButton", {
+            local toggleBg = new("Frame", {
                 Parent = frame,
                 Size = UDim2.new(0,46,0,26),
                 Position = UDim2.new(1, -50, 0.5, -13),
                 BackgroundColor3 = cfg.Theme.ToggleBg,
                 BorderSizePixel = 0,
-                AutoButtonColor = false,
-                Text = ""
             })
             new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0,12)})
             local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)})
@@ -330,16 +336,19 @@ function HwanUI:CreateWindow(title, opts)
             local function setState(s, silent)
                 state = s
                 if s then
-                    tween(toggleBg, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
-                    tween(dot, {Position = UDim2.new(1, -22, 0.5, -9), BackgroundColor3 = Color3.fromRGB(255,255,255)}, 0.12)
+                    -- DO NOT change toggleBg color; only darken the dot a bit to indicate ON
+                    tween(dot, {Position = UDim2.new(1, -22, 0.5, -9), BackgroundColor3 = darkenColor(Color3.fromRGB(230,230,230), 0.12)}, 0.12)
                 else
-                    tween(toggleBg, {BackgroundColor3 = cfg.Theme.ToggleBg}, 0.12)
                     tween(dot, {Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)}, 0.12)
                 end
                 if callback and not silent then pcall(callback, state) end
             end
 
-            local toggleConn = toggleBg.MouseButton1Click:Connect(function() setState(not state) end)
+            -- clickable overlay
+            local clickBtn = new("TextButton", {Parent = toggleBg, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, AutoButtonColor = false, Text = ""})
+            new("UICorner", {Parent = clickBtn, CornerRadius = UDim.new(0,12)})
+
+            local toggleConn = clickBtn.MouseButton1Click:Connect(function() setState(not state) end)
             table.insert(conns, toggleConn)
             setState(state, true)
 
@@ -358,14 +367,15 @@ function HwanUI:CreateWindow(title, opts)
                 tween(t.Button, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12)
             end
             tab.Content.Visible = true
-            tween(tab.Button, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
+            -- selected: brighten slightly to indicate active
+            tween(tab.Button, {BackgroundColor3 = brightenColor(cfg.Theme.TabBg, 0.08)}, 0.12)
         end)
         table.insert(conns, clickConn)
 
         -- auto-activate first tab
         if #tabList == 1 then
             tab.Content.Visible = true
-            tween(tab.Button, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
+            tween(tab.Button, {BackgroundColor3 = brightenColor(cfg.Theme.TabBg, 0.08)}, 0.12)
         end
 
         return tab
@@ -450,19 +460,7 @@ function HwanUI:CreateWindow(title, opts)
     local pingTimer = 0
     local pingInterval = 0.25 -- update ping every 0.25s
     local renderConn = RunService.RenderStepped:Connect(function(dt)
-        -- rotate gradients and shimmer only when visible to reduce cost
-        if Frame and Frame.Parent and Frame.Visible then
-            titleGrad.Rotation = (titleGrad.Rotation + 0.8) % 360
-            h_g_top.Rotation = (h_g_top.Rotation + 1.2) % 360
-            h_g_bottom.Rotation = (h_g_bottom.Rotation + 1.2) % 360
-            hbtnGrad.Rotation = (hbtnGrad.Rotation + 1.6) % 360
-            if divider0Shimmer and divider0Shimmer.Parent then
-                local cur = divider0Shimmer.Position
-                divider0Shimmer.Position = UDim2.new((cur.X.Scale + 0.004) % 1.6 - 0.3, cur.X.Offset, cur.Y.Scale, cur.Y.Offset)
-            end
-        end
-
-        -- time & fps update every frame (lightweight)
+        -- no gradient animations anymore; just update time/fps/ping
         local timeStr = os.date("%H:%M:%S")
         local fps = 0
         if dt > 0 then fps = math.floor(1/dt + 0.5) end
@@ -507,7 +505,7 @@ function HwanUI:CreateWindow(title, opts)
 
     -- open tween
     local finalSize = UDim2.new(0, cfg.Width, 0, cfg.Height)
-    local openTween = TweenService:Create(Frame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = finalSize})
+    local openTween = TweenService:Create(Frame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = finalSize})
 
     -- Notifications
     local function processNextNotification()
