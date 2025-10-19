@@ -71,7 +71,7 @@ local function clamp(v,a,b) if v < a then return a end if v > b then return b en
 if _G.HwanHubData then
     -- disconnect saved connections
     if _G.HwanHubData.conns then
-        for _,c in ipairs(_G.HwanHubData.conns) do
+        for _, c in ipairs(_G.HwanHubData.conns) do
             pcall(function()
                 if c and c.Disconnect then c:Disconnect() end
                 if c and c.disconnect then c:disconnect() end
@@ -92,6 +92,7 @@ local DEFAULT = {
     ShowToggleIcon = true,
     KeySystem = true,
     AccessKey = "hwandeptrai", -- default access key
+    KeyUrl = nil, -- optional URL copied to clipboard when Get key clicked
     Theme = {
         Main = Color3.fromRGB(18,18,18),
         TabBg = Color3.fromRGB(50,50,50),
@@ -202,7 +203,17 @@ function HwanUI:CreateWindow(title, opts)
     local InfoText = new("TextLabel", {Parent = InfoInner, Size = UDim2.new(1,-4,1,0), Position = UDim2.new(0,2,0,0), BackgroundTransparency = 1, Font = Enum.Font.SourceSansBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextColor3 = cfg.Theme.Text, Text = "TIME: 00:00:00 | FPS: 0 | PING: 0 ms (0%CV)", ZIndex = 52})
 
     -- Floating Hwan icon/button
-    local HwanBtn = new("Frame", {Parent = screenGui, Name = "HwanBtn", Size = UDim2.new(0,56,0,56), Position = UDim2.new(0, 90, 0, 64), BackgroundColor3 = InfoBar.BackgroundColor3, BorderSizePixel = 0, ZIndex = 60})
+    local HwanBtn = new("Frame", {
+        Parent = screenGui,
+        Name = "HwanBtn",
+        Size = UDim2.new(0,56,0,56),
+        Position = UDim2.new(0, 90, 0, 64),
+        BackgroundColor3 = InfoBar.BackgroundColor3,
+        BorderSizePixel = 0,
+        ZIndex = 60,
+        Active = true,
+        Visible = (cfg.ShowToggleIcon ~= false)
+    })
     new("UICorner", {Parent = HwanBtn, CornerRadius = UDim.new(0,10)})
     local HwanInner = new("Frame", {Parent = HwanBtn, Size = UDim2.new(1,-8,1,-8), Position = UDim2.new(0,4,0,4), BackgroundColor3 = InfoInner.BackgroundColor3, BorderSizePixel = 0, ZIndex = 61})
     new("UICorner", {Parent = HwanInner, CornerRadius = UDim.new(0,8)})
@@ -234,9 +245,16 @@ function HwanUI:CreateWindow(title, opts)
                 dragging = true
                 dragStart = input.Position
                 startCanvasX = tabScroll.CanvasPosition.X
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                local endedConn
+                endedConn = input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        if endedConn then
+                            pcall(function() endedConn:Disconnect() end)
+                        end
+                    end
                 end)
+                table.insert(conns, endedConn)
             end
         end)
         table.insert(conns, conn1)
@@ -266,75 +284,83 @@ function HwanUI:CreateWindow(title, opts)
             BorderSizePixel = 0
         })
         new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,8)})
-        btn.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(btn, {BackgroundColor3 = cfg.Theme.Accent}, 0.12) end end)
-        btn.MouseLeave:Connect(function() tween(btn, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12) end)
+        local eConn = btn.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(btn, {BackgroundColor3 = cfg.Theme.Accent}, 0.12) end end)
+        table.insert(conns, eConn)
+        local lConn = btn.MouseLeave:Connect(function() tween(btn, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12) end)
+        table.insert(conns, lConn)
 
         local content = new("Frame", {Parent = contentArea, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false})
         local layout = new("UIListLayout", {Parent = content, FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0,10)})
         new("UIPadding", {Parent = content, PaddingLeft = UDim.new(0,6), PaddingRight = UDim.new(0,6), PaddingTop = UDim.new(0,6)})
+
+        table.insert(pages, content)
 
         local tab = {Name = name, Button = btn, Content = content}
 
         function tab:CreateButton(label, callback)
             local b = new("TextButton", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundColor3 = cfg.Theme.Btn, TextColor3 = cfg.Theme.Text, Text = label, Font = Enum.Font.Gotham, TextSize = 15, AutoButtonColor=false })
             new("UICorner", {Parent = b, CornerRadius = UDim.new(0,8)})
-            b.MouseButton1Click:Connect(function()
+            local clickConn = b.MouseButton1Click:Connect(function()
                 if callback then pcall(callback) end
                 tween(b, {BackgroundColor3 = cfg.Theme.Accent}, 0.06)
                 task.wait(0.06)
                 tween(b, {BackgroundColor3 = cfg.Theme.Btn}, 0.12)
             end)
+            table.insert(conns, clickConn)
             return b
         end
 
         function tab:CreateToggle(label, initial, callback)
-    local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1})
-    local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
-    local toggleBg = new("TextButton", {
-        Parent = frame,
-        Size = UDim2.new(0,46,0,26),
-        Position = UDim2.new(1, -50, 0.5, -13),
-        BackgroundColor3 = cfg.Theme.ToggleBg,
-        BorderSizePixel = 0,
-        AutoButtonColor = false,
-        Text = "" -- ẩn chữ "Button"
-    })
-    new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0,12)})
-    local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)})
-    new("UICorner", {Parent = dot, CornerRadius = UDim.new(1,0)})
+            local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1})
+            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
+            local toggleBg = new("TextButton", {
+                Parent = frame,
+                Size = UDim2.new(0,46,0,26),
+                Position = UDim2.new(1, -50, 0.5, -13),
+                BackgroundColor3 = cfg.Theme.ToggleBg,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                Text = ""
+            })
+            new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0,12)})
+            local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)})
+            new("UICorner", {Parent = dot, CornerRadius = UDim.new(1,0)})
 
-    local state = initial and true or false
-    local function setState(s, silent)
-        state = s
-        if s then
-            tween(toggleBg, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
-            tween(dot, {Position = UDim2.new(1, -22, 0.5, -9), BackgroundColor3 = Color3.fromRGB(255,255,255)}, 0.12)
-        else
-            tween(toggleBg, {BackgroundColor3 = cfg.Theme.ToggleBg}, 0.12)
-            tween(dot, {Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)}, 0.12)
+            local state = initial and true or false
+            local function setState(s, silent)
+                state = s
+                if s then
+                    tween(toggleBg, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
+                    tween(dot, {Position = UDim2.new(1, -22, 0.5, -9), BackgroundColor3 = Color3.fromRGB(255,255,255)}, 0.12)
+                else
+                    tween(toggleBg, {BackgroundColor3 = cfg.Theme.ToggleBg}, 0.12)
+                    tween(dot, {Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)}, 0.12)
+                end
+                if callback and not silent then pcall(callback, state) end
+            end
+
+            local toggleConn = toggleBg.MouseButton1Click:Connect(function() setState(not state) end)
+            table.insert(conns, toggleConn)
+            setState(state, true)
+
+            return {Get = function() return state end, Set = function(v) setState((v and true) or false) end, UI = frame}
         end
-        if callback and not silent then pcall(callback, state) end
-    end
 
-    toggleBg.MouseButton1Click:Connect(function() setState(not state) end)
-    setState(state, true)
-    return {Get = function() return state end, Set = function(v) setState((v and true) or false) end, UI = frame}
-end
-        
         function tab:CreateLabel(text)
             local l = new("TextLabel", {Parent = self.Content, Size = UDim2.new(1,0,0,20), Text = text, BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
             return l
         end
 
         table.insert(tabList, tab)
-        table.insert(conns, btn.MouseButton1Click:Connect(function()
+        local clickConn = btn.MouseButton1Click:Connect(function()
             for _,t in ipairs(tabList) do
                 t.Content.Visible = false
                 tween(t.Button, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12)
             end
             tab.Content.Visible = true
             tween(tab.Button, {BackgroundColor3 = cfg.Theme.Accent}, 0.12)
-        end))
+        end)
+        table.insert(conns, clickConn)
 
         -- auto-activate first tab
         if #tabList == 1 then
@@ -348,15 +374,23 @@ end
     -- Make Frame, InfoBar, HwanBtn draggable
     local function makeDraggable(gui, handle)
         handle = handle or gui
+        pcall(function() handle.Active = true end) -- ensure it can receive input
         local dragging, dragInput, dragStart, startPos
         local c1 = handle.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true
                 dragStart = input.Position
                 startPos = gui.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                local endedConn
+                endedConn = input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        if endedConn then
+                            pcall(function() endedConn:Disconnect() end)
+                        end
+                    end
                 end)
+                table.insert(conns, endedConn)
             end
         end)
         table.insert(conns, c1)
@@ -400,41 +434,61 @@ end
         if input.KeyCode == Enum.KeyCode.LeftAlt then
             visible = not visible
             Frame.Visible = visible
+            if not visible then
+                -- hide tab contents as well
+                for _, t in ipairs(tabList) do
+                    if t and t.Content then t.Content.Visible = false end
+                end
+            end
         end
     end)
     table.insert(conns, altConn)
 
-    -- InfoBar update (fps/ping/time)
+    -- InfoBar update (fps/ping/time) - throttle ping calc to reduce cost
     local pingSamples = {}
     local maxPingSamples = 30
+    local pingTimer = 0
+    local pingInterval = 0.25 -- update ping every 0.25s
     local renderConn = RunService.RenderStepped:Connect(function(dt)
-        -- rotate gradients and shimmer
-        titleGrad.Rotation = (titleGrad.Rotation + 0.8) % 360
-        h_g_top.Rotation = (h_g_top.Rotation + 1.2) % 360
-        h_g_bottom.Rotation = (h_g_bottom.Rotation + 1.2) % 360
-        hbtnGrad.Rotation = (hbtnGrad.Rotation + 1.6) % 360
-        if divider0Shimmer and divider0Shimmer.Parent then
-            local cur = divider0Shimmer.Position
-            divider0Shimmer.Position = UDim2.new((cur.X.Scale + 0.004) % 1.6 - 0.3, cur.X.Offset, cur.Y.Scale, cur.Y.Offset)
+        -- rotate gradients and shimmer only when visible to reduce cost
+        if Frame and Frame.Parent and Frame.Visible then
+            titleGrad.Rotation = (titleGrad.Rotation + 0.8) % 360
+            h_g_top.Rotation = (h_g_top.Rotation + 1.2) % 360
+            h_g_bottom.Rotation = (h_g_bottom.Rotation + 1.2) % 360
+            hbtnGrad.Rotation = (hbtnGrad.Rotation + 1.6) % 360
+            if divider0Shimmer and divider0Shimmer.Parent then
+                local cur = divider0Shimmer.Position
+                divider0Shimmer.Position = UDim2.new((cur.X.Scale + 0.004) % 1.6 - 0.3, cur.X.Offset, cur.Y.Scale, cur.Y.Offset)
+            end
         end
 
+        -- time & fps update every frame (lightweight)
         local timeStr = os.date("%H:%M:%S")
         local fps = 0
         if dt > 0 then fps = math.floor(1/dt + 0.5) end
 
+        -- throttle ping calculation to pingInterval
+        pingTimer = pingTimer + dt
         local pingMs = 0
-        local ok, pingValue = pcall(function()
-            return game:GetService("Stats").Network.ServerStatsItem["Data Ping"]
-        end)
-        if ok and pingValue and typeof(pingValue.GetValueString) == "function" then
-            local ok2, str = pcall(function() return pingValue:GetValueString() end)
-            if ok2 and str then
-                pingMs = tonumber(str:match("%d+")) or 0
+        if pingTimer >= pingInterval then
+            pingTimer = pingTimer - pingInterval
+            local ok, pingValue = pcall(function()
+                return game:GetService("Stats").Network.ServerStatsItem["Data Ping"]
+            end)
+            if ok and pingValue and typeof(pingValue.GetValueString) == "function" then
+                local ok2, str = pcall(function() return pingValue:GetValueString() end)
+                if ok2 and str then
+                    pingMs = tonumber(str:match("%d+")) or 0
+                end
             end
+            table.insert(pingSamples, pingMs)
+            if #pingSamples > maxPingSamples then table.remove(pingSamples, 1) end
+        else
+            -- use last sample if available
+            if #pingSamples > 0 then pingMs = pingSamples[#pingSamples] end
         end
 
-        table.insert(pingSamples, pingMs)
-        if #pingSamples > maxPingSamples then table.remove(pingSamples, 1) end
+        -- compute CV
         local mean, std = 0, 0
         if #pingSamples > 0 then
             local sum = 0
@@ -494,16 +548,16 @@ end
 
     -- Key system (optional)
     local function createKeyUI(onAuth)
-        local kFrame = new("Frame", {Parent = screenGui, Name = "KeyPrompt", Size = UDim2.new(0, 460, 0, 140), Position = UDim2.new(0.5, -230, 0.38, -70), BackgroundColor3 = cfg.Theme.Main, BorderSizePixel = 0, ZIndex = 100, Active = true}) -- << FIXED
+        local kFrame = new("Frame", {Parent = screenGui, Name = "KeyPrompt", Size = UDim2.new(0, 460, 0, 140), Position = UDim2.new(0.5, -230, 0.38, -70), BackgroundColor3 = cfg.Theme.Main, BorderSizePixel = 0, ZIndex = 100, Active = true})
         new("UICorner", {Parent = kFrame, CornerRadius = UDim.new(0,10)})
         local titleLbl = new("TextLabel", {Parent = kFrame, Size = UDim2.new(1, -20, 0, 30), Position = UDim2.new(0,10,0,8), BackgroundTransparency = 1, Font = Enum.Font.FredokaOne, TextSize = 18, Text = cfg.Title .. " | Key System", TextColor3 = cfg.Theme.Text, TextXAlignment = Enum.TextXAlignment.Center})
-        local inputBox = new("TextBox", {Parent = kFrame, Size = UDim2.new(1, -40, 0, 36), Position = UDim2.new(0,20,0,48), PlaceholderText = "Enter your key here!", Font = Enum.Font.SourceSans, TextSize = 18, Text = "", ClearTextOnFocus = false, BackgroundColor3 = cfg.Theme.ToggleBg, TextColor3 = cfg.Theme.Text, BorderSizePixel = 0}) -- << FIXED
+        local inputBox = new("TextBox", {Parent = kFrame, Size = UDim2.new(1, -40, 0, 36), Position = UDim2.new(0,20,0,48), PlaceholderText = "Enter your key here!", Font = Enum.Font.SourceSans, TextSize = 18, Text = "", ClearTextOnFocus = false, BackgroundColor3 = cfg.Theme.ToggleBg, TextColor3 = cfg.Theme.Text, BorderSizePixel = 0})
         new("UICorner", {Parent = inputBox, CornerRadius = UDim.new(0,6)})
         new("UIPadding", {Parent = inputBox, PaddingLeft = UDim.new(0,12), PaddingRight = UDim.new(0,10)})
 
-        local getBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, -130, 0, 96), BackgroundColor3 = cfg.Theme.Btn, Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Get key", TextColor3 = cfg.Theme.Text}) -- << FIXED
+        local getBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, -130, 0, 96), BackgroundColor3 = cfg.Theme.Btn, Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Get key", TextColor3 = cfg.Theme.Text})
         new("UICorner", {Parent = getBtn, CornerRadius = UDim.new(0,6)})
-        local checkBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, 10, 0, 96), BackgroundColor3 = cfg.Theme.Btn, Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Check Key", TextColor3 = cfg.Theme.Text}) -- << FIXED
+        local checkBtn = new("TextButton", {Parent = kFrame, Size = UDim2.new(0,120,0,36), Position = UDim2.new(0.5, 10, 0, 96), BackgroundColor3 = cfg.Theme.Btn, Font = Enum.Font.FredokaOne, TextSize = 16, Text = "Check Key", TextColor3 = cfg.Theme.Text})
         new("UICorner", {Parent = checkBtn, CornerRadius = UDim.new(0,6)})
         local msg = new("TextLabel", {Parent = kFrame, Size = UDim2.new(1, -20, 0, 18), Position = UDim2.new(0,10,1, -22), BackgroundTransparency = 1, Font = Enum.Font.SourceSans, TextSize = 14, Text = "", TextColor3 = Color3.fromRGB(200,200,200), TextXAlignment = Enum.TextXAlignment.Center})
 
@@ -518,12 +572,24 @@ end
             end
         end
 
-        table.insert(conns, checkBtn.MouseButton1Click:Connect(function() tryKey(inputBox.Text) end))
-        table.insert(conns, getBtn.MouseButton1Click:Connect(function() pcall(function() if setclipboard then setclipboard("https://facebook.com/hwanthichhat") end end); showNotification("Copied to clipboard!") end))
-        table.insert(conns, inputBox.FocusLost:Connect(function(enter) if enter then tryKey(inputBox.Text) end end))
+        local checkConn = checkBtn.MouseButton1Click:Connect(function() tryKey(inputBox.Text) end)
+        table.insert(conns, checkConn)
+        local getConn = getBtn.MouseButton1Click:Connect(function()
+            pcall(function()
+                if cfg.KeyUrl and setclipboard then
+                    setclipboard(cfg.KeyUrl)
+                elseif setclipboard then
+                    setclipboard("https://facebook.com/hwanthichhat")
+                end
+            end)
+            showNotification("Copied to clipboard!")
+        end)
+        table.insert(conns, getConn)
+        local focusConn = inputBox.FocusLost:Connect(function(enter) if enter then tryKey(inputBox.Text) end end)
+        table.insert(conns, focusConn)
 
         -- make draggable
-        makeDraggable(kFrame) -- << FIXED (Sử dụng lại hàm, xóa code lặp)
+        makeDraggable(kFrame)
     end
 
     -- public API object: window
@@ -536,14 +602,14 @@ end
     function window:Center() Frame.Position = UDim2.new(0, 16, 0.5, -cfg.Height/2) end
     function window:SetVisible(v) Frame.Visible = v end
     function window:Destroy()
-        -- cleanup
-        pcall(function()
-            if _G.HwanHubData and _G.HwanHubData.conns then
-                for _,c in ipairs(_G.HwanHubData.conns) do
-                    pcall(function() if c and c.Disconnect then c:Disconnect() end end)
+        -- disconnect all stored connections
+        for _, c in ipairs(conns) do
+            pcall(function()
+                if c and c.Disconnect then c:Disconnect()
+                elseif c and c.disconnect then c:disconnect()
                 end
-            end
-        end)
+            end)
+        end
         pcall(function() screenGui:Destroy() end)
         _G.HwanHubData = nil
     end
@@ -559,7 +625,9 @@ end
     local function setGuiVisible(state)
         Frame.Visible = state
         if not state then
-            for _, pg in pairs(pages) do if pg then pg.Visible = false end end
+            for _, t in ipairs(tabList) do
+                if t and t.Content then t.Content.Visible = false end
+            end
         end
     end
 
@@ -574,14 +642,15 @@ end
             createKeyUI(function()
                 _G.HwanHubData.auth = true
                 Frame.Visible = true
-                HwanBtn.Visible = true
+                -- only show HwanBtn if the option allows it
+                HwanBtn.Visible = (cfg.ShowToggleIcon ~= false)
                 openTween:Play()
                 showNotification("Welcome to " .. (cfg.Title or "Hwan Hub"))
             end)
         else
             _G.HwanHubData.auth = true
             Frame.Visible = true
-            HwanBtn.Visible = true
+            HwanBtn.Visible = (cfg.ShowToggleIcon ~= false)
             task.wait(0.06)
             openTween:Play()
         end
