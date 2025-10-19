@@ -1,4 +1,4 @@
--- HwanUI.lua (final) — fixes per Hwan requests
+-- HwanUI.lua (fixed)
 local HwanUI = {}
 HwanUI.__index = HwanUI
 
@@ -97,6 +97,13 @@ local DEFAULT = {
     TweenDir = Enum.EasingDirection.Out,
 }
 
+-- simple incremental id generator (safer than random collisions)
+local _uid = 0
+local function nextId()
+    _uid = _uid + 1
+    return tostring(_uid)
+end
+
 function HwanUI:CreateWindow(title, opts)
     opts = opts or {}
     local cfg = {}
@@ -127,6 +134,18 @@ function HwanUI:CreateWindow(title, opts)
 
     -- state for dropdowns to restore on show/hide
     local dropdownStates = {}
+
+    -- preventWindowDrag implemented as a counter (safer for nested interactions)
+    local preventWindowDragCount = 0
+    local function pushPreventWindowDrag()
+        preventWindowDragCount = preventWindowDragCount + 1
+    end
+    local function popPreventWindowDrag()
+        preventWindowDragCount = math.max(0, preventWindowDragCount - 1)
+    end
+    local function isPreventWindowDrag()
+        return preventWindowDragCount > 0
+    end
 
     -- MAIN FRAME
     local Frame = new("Frame", {
@@ -277,9 +296,6 @@ function HwanUI:CreateWindow(title, opts)
         end)
     end
 
-    -- prevent dragging window while interacting controls
-    local preventWindowDrag = false
-
     -- left label & right control layout
     local LABEL_WIDTH = 0.40
     local CONTROL_WIDTH = 0.56
@@ -384,7 +400,7 @@ function HwanUI:CreateWindow(title, opts)
         -- Dropdown: label left, button right, panel toggles; panel has border & same style
         function tab:CreateDropdown(label, options, callback)
             options = options or {}
-            local id = tostring(math.random(1,999999))
+            local id = nextId()
             dropdownStates[id] = dropdownStates[id] or {open = false, selection = nil, options = options}
 
             local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1})
@@ -395,9 +411,28 @@ function HwanUI:CreateWindow(title, opts)
 
             local panel = nil
             local panelOpen = dropdownStates[id].open
+            local dropdownConns = {} -- local conns for this dropdown (so we can clean up on destroy)
+
+            local function destroyPanel()
+                if panel and panel.Parent then
+                    pcall(function() tween(panel, {BackgroundTransparency = 1}, 0.12, cfg.TweenStyle, cfg.TweenDir) end)
+                    task.wait(0.12)
+                    pcall(function() panel:Destroy() end)
+                end
+                -- disconnect local dropdown connections
+                for _,dc in ipairs(dropdownConns) do
+                    pcall(function()
+                        if dc and dc.Disconnect then dc:Disconnect() elseif dc and dc.disconnect then dc:disconnect() end
+                    end)
+                end
+                dropdownConns = {}
+                panel = nil
+                panelOpen = false
+                dropdownStates[id].open = false
+            end
 
             local function createPanel()
-                if panel and panel.Parent then panel:Destroy() end
+                if panel and panel.Parent then pcall(function() panel:Destroy() end) end
                 panel = new("Frame", {Parent = screenGui, Size = UDim2.new(0,220,0, 16 + #options*32), BackgroundColor3 = cfg.Theme.InfoInner, ZIndex = 200, BackgroundTransparency = 1})
                 new("UICorner", {Parent = panel, CornerRadius = UDim.new(0,8)})
                 local stroke = new("UIStroke", {Parent = panel}); stroke.Color = Color3.fromRGB(20,20,20); stroke.Thickness = 2; stroke.Transparency = 0.8
@@ -409,8 +444,8 @@ function HwanUI:CreateWindow(title, opts)
                     local y = absY + (TitleFrame.AbsoluteSize.Y or 0) + 8
                     local screenSize = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1920,1080)
                     local panelW, panelH = 220, (16 + #options*32)
-                    x = math.clamp(x, 8, screenSize.X - panelW - 8)
-                    y = math.clamp(y, 8, screenSize.Y - panelH - 8)
+                    x = clamp(x, 8, screenSize.X - panelW - 8)
+                    y = clamp(y, 8, screenSize.Y - panelH - 8)
                     panel.Position = UDim2.new(0, x, 0, y)
                 end)
                 -- populate
@@ -445,31 +480,23 @@ function HwanUI:CreateWindow(title, opts)
                             local absY = Frame.AbsolutePosition.Y
                             local x = absX + Frame.AbsoluteSize.X + 8
                             local y = absY + (TitleFrame.AbsoluteSize.Y or 0) + 8
-                            panel.Position = UDim2.new(0, math.clamp(x,8, (Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize.X or 1920)-panel.AbsoluteSize.X.Offset-8), 0, math.clamp(y,8, (Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize.Y or 1080)-panel.AbsoluteSize.Y.Offset-8))
+                            panel.Position = UDim2.new(0, clamp(x,8, (Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize.X or 1920)-panel.AbsoluteSize.X.Offset-8), 0, clamp(y,8, (Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize.Y or 1080)-panel.AbsoluteSize.Y.Offset-8))
                         end)
                     end
                 end)
-                table.insert(conns, follow)
+                table.insert(dropdownConns, follow)
                 -- close panel when main GUI hidden, but remember state so it reopens when GUI shown
                 local vis = Frame:GetPropertyChangedSignal("Visible"):Connect(function()
                     if not Frame.Visible and panel and panel.Parent then
-                        pcall(function() panel:Destroy() end)
-                        panel = nil
-                        panelOpen = false
-                        dropdownStates[id].open = false
+                        destroyPanel()
                     end
                 end)
-                table.insert(conns, vis)
+                table.insert(dropdownConns, vis)
             end
 
             local function togglePanel()
                 if panelOpen and panel and panel.Parent then
-                    pcall(function() tween(panel, {BackgroundTransparency = 1}, 0.12, cfg.TweenStyle, cfg.TweenDir) end)
-                    task.wait(0.12)
-                    pcall(function() panel:Destroy() end)
-                    panel = nil
-                    panelOpen = false
-                    dropdownStates[id].open = false
+                    destroyPanel()
                 else
                     createPanel()
                 end
@@ -481,9 +508,10 @@ function HwanUI:CreateWindow(title, opts)
             table.insert(conns, openConn)
 
             -- when main GUI becomes visible again, restore dropdown if it was open at hide time
+            -- keep a single property-changed connection to Frame.Visible (cleanup when window destroyed via conns)
             table.insert(conns, Frame:GetPropertyChangedSignal("Visible"):Connect(function()
                 if Frame.Visible and dropdownStates[id] and dropdownStates[id].open then
-                    -- recreate panel
+                    -- recreate panel if not present
                     if not (panel and panel.Parent) then
                         createPanel()
                     end
@@ -529,11 +557,11 @@ function HwanUI:CreateWindow(title, opts)
             knob.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                     dragging = true
-                    preventWindowDrag = true
+                    pushPreventWindowDrag()
                     upConn = input.Changed:Connect(function()
                         if input.UserInputState == Enum.UserInputState.End then
                             dragging = false
-                            preventWindowDrag = false
+                            popPreventWindowDrag()
                             if upConn then pcall(function() upConn:Disconnect() end) end
                         end
                     end)
@@ -553,8 +581,8 @@ function HwanUI:CreateWindow(title, opts)
             -- clicking bar: jump but prevent window drag briefly
             local barClickConn = barBg.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    preventWindowDrag = true
-                    task.defer(function() task.wait(0.14); preventWindowDrag = false end)
+                    pushPreventWindowDrag()
+                    task.defer(function() task.wait(0.14); popPreventWindowDrag() end)
                     local mx = (LocalPlayer and LocalPlayer:GetMouse() and LocalPlayer:GetMouse().X) or input.Position.X
                     local left = barBg.AbsolutePosition.X
                     local width = barBg.AbsoluteSize.X
@@ -604,7 +632,7 @@ function HwanUI:CreateWindow(title, opts)
         pcall(function() handle.Active = true end)
         local dragging, dragInput, dragStart, startPos
         local c1 = handle.InputBegan:Connect(function(input)
-            if preventWindowDrag then return end
+            if isPreventWindowDrag() then return end
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true
                 dragStart = input.Position
@@ -647,6 +675,10 @@ function HwanUI:CreateWindow(title, opts)
                 pcall(function() obj:Destroy() end)
             end
         end
+        -- ensure dropdownStates reflect closed panels
+        for k,_ in pairs(dropdownStates) do
+            dropdownStates[k].open = false
+        end
     end
 
     local hwanConn = HwanBtn.MouseButton1Click:Connect(function()
@@ -654,11 +686,10 @@ function HwanUI:CreateWindow(title, opts)
         if visible then
             Frame.Visible = true
             tween(Frame, {Size = UDim2.new(0, cfg.Width, 0, cfg.Height)}, 0.28, cfg.TweenStyle, cfg.TweenDir)
-            -- restore dropdowns that were open when hidden
+            -- restore dropdowns that were open when hidden (dropdownStates maintained)
             for id,st in pairs(dropdownStates) do
                 if st.open then
-                    -- attempt to recreate: do by firing property changed so each dropdown handler reopens via its connection
-                    -- simpler: iterate known frames and call their property changed handlers already attached
+                    -- Frame Visible change connection will trigger recreate
                 end
             end
         else
@@ -777,7 +808,7 @@ function HwanUI:CreateWindow(title, opts)
             -- restore dropdowns
             for id,st in pairs(dropdownStates) do
                 if st.open then
-                    -- each dropdown listens to Frame Visible change and will recreate its panel
+                    -- Frame.Visible change connection will recreate
                 end
             end
         end
