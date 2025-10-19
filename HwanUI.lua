@@ -1,4 +1,4 @@
--- HwanUI.lua (fixed)
+-- HwanUI.lua (final fixed)
 local HwanUI = {}
 HwanUI.__index = HwanUI
 
@@ -132,6 +132,10 @@ function HwanUI:CreateWindow(title, opts)
     screenGui.Parent = host
     protectGui(screenGui)
 
+    -- ensure our ScreenGui sits above most other GUIs
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.DisplayOrder = 99999
+
     -- state for dropdowns to restore on show/hide
     local dropdownStates = {}
 
@@ -156,7 +160,7 @@ function HwanUI:CreateWindow(title, opts)
         BackgroundColor3 = cfg.Theme.Main,
         BorderSizePixel = 0,
         Active = true,
-        ZIndex = 10,
+        ZIndex = 1001,
     })
     new("UICorner", {Parent = Frame, CornerRadius = cfg.Corner})
     local frameStroke = new("UIStroke", {Parent = Frame})
@@ -177,7 +181,7 @@ function HwanUI:CreateWindow(title, opts)
         TextStrokeTransparency = 0,
         TextStrokeColor3 = Color3.fromRGB(255,255,255),
         TextColor3 = cfg.Theme.Accent,
-        ZIndex = 11,
+        ZIndex = 1002,
     })
     local titleGrad = new("UIGradient", {Parent = TitleMain})
     titleGrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(120,120,120)), ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0))})
@@ -191,36 +195,36 @@ function HwanUI:CreateWindow(title, opts)
 
     -- Divider0 (moved down a little)
     local dividerY = 100 -- nhích xuống 4px so với 96
-    local divider0 = new("Frame", {Parent = Frame, Name = "Divider0", Size = UDim2.new(1,-16,0,2), Position = UDim2.new(0,8,0,dividerY), BackgroundColor3 = Color3.fromRGB(45,45,45), BorderSizePixel = 0})
+    local divider0 = new("Frame", {Parent = Frame, Name = "Divider0", Size = UDim2.new(1,-16,0,2), Position = UDim2.new(0,8,0,dividerY), BackgroundColor3 = Color3.fromRGB(45,45,45), BorderSizePixel = 0, ZIndex = 1001})
     divider0.ClipsDescendants = true
 
     -- InfoBar & toggle icon (restore previous compact icon look)
-    local InfoBar = new("Frame", {Parent = screenGui, Name = "InfoBar", Size = UDim2.new(0, 360, 0, 36), Position = UDim2.new(1, -376, 0, 16), BackgroundColor3 = cfg.Theme.InfoBg, BorderSizePixel = 0, ZIndex = 50})
+    local InfoBar = new("Frame", {Parent = screenGui, Name = "InfoBar", Size = UDim2.new(0, 360, 0, 36), Position = UDim2.new(1, -376, 0, 16), BackgroundColor3 = cfg.Theme.InfoBg, BorderSizePixel = 0, ZIndex = 1003})
     new("UICorner", {Parent = InfoBar, CornerRadius = UDim.new(0,8)})
     InfoBar.BackgroundTransparency = 0.06
-    local InfoInner = new("Frame", {Parent = InfoBar, Size = UDim2.new(1, -8, 1, -8), Position = UDim2.new(0,4,0,4), BackgroundColor3 = cfg.Theme.InfoInner, BorderSizePixel = 0, ZIndex = 51})
+    local InfoInner = new("Frame", {Parent = InfoBar, Size = UDim2.new(1, -8, 1, -8), Position = UDim2.new(0,4,0,4), BackgroundColor3 = cfg.Theme.InfoInner, BorderSizePixel = 0, ZIndex = 1004})
     new("UICorner", {Parent = InfoInner, CornerRadius = UDim.new(0,6)})
-    local InfoText = new("TextLabel", {Parent = InfoInner, Size = UDim2.new(1,-4,1,0), Position = UDim2.new(0,2,0,0), BackgroundTransparency = 1, Font = Enum.Font.SourceSansBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextColor3 = cfg.Theme.Text, ZIndex = 52})
+    local InfoText = new("TextLabel", {Parent = InfoInner, Size = UDim2.new(1,-4,1,0), Position = UDim2.new(0,2,0,0), BackgroundTransparency = 1, Font = Enum.Font.SourceSansBold, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextColor3 = cfg.Theme.Text, ZIndex = 1005})
 
     -- Toggle icon: restore original compact design (small square)
-    local HwanBtn = new("TextButton", {Parent = screenGui, Name = "HwanBtn", Size = UDim2.new(0,56,0,56), Position = UDim2.new(0, 90, 0, 64), BackgroundColor3 = InfoBar.BackgroundColor3, BorderSizePixel = 0, ZIndex = 60, Active = true, Visible = (cfg.ShowToggleIcon ~= false)})
+    local HwanBtn = new("TextButton", {Parent = screenGui, Name = "HwanBtn", Size = UDim2.new(0,56,0,56), Position = UDim2.new(0, 90, 0, 64), BackgroundColor3 = InfoBar.BackgroundColor3, BorderSizePixel = 0, ZIndex = 1006, Active = true, Visible = (cfg.ShowToggleIcon ~= false)})
     new("UICorner", {Parent = HwanBtn, CornerRadius = UDim.new(0,10)})
     HwanBtn.AutoButtonColor = false
-    local HwanInner = new("Frame", {Parent = HwanBtn, Size = UDim2.new(1,-8,1,-8), Position = UDim2.new(0,4,0,4), BackgroundColor3 = InfoInner.BackgroundColor3, BorderSizePixel = 0, ZIndex = 61})
+    local HwanInner = new("Frame", {Parent = HwanBtn, Size = UDim2.new(1,-8,1,-8), Position = UDim2.new(0,4,0,4), BackgroundColor3 = InfoInner.BackgroundColor3, BorderSizePixel = 0, ZIndex = 1007})
     new("UICorner", {Parent = HwanInner, CornerRadius = UDim.new(0,8)})
-    local HwanTop = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.45,0), Position = UDim2.new(0,0,0,6), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = string.sub(cfg.Title,1,4):upper(), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 62, TextColor3 = cfg.Theme.Accent})
-    local HwanBottom = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.45,0), Position = UDim2.new(0,0,0.55,0), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = "HUB", TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 62, TextColor3 = cfg.Theme.Accent})
+    local HwanTop = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.45,0), Position = UDim2.new(0,0,0,6), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = string.sub(cfg.Title,1,4):upper(), TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 1008, TextColor3 = cfg.Theme.Accent, TextScaled = true, TextSize = 20})
+    local HwanBottom = new("TextLabel", {Parent = HwanInner, Size = UDim2.new(1,0,0.45,0), Position = UDim2.new(0,0,0.55,0), BackgroundTransparency = 1, Font = Enum.Font.LuckiestGuy, Text = "HUB", TextXAlignment = Enum.TextXAlignment.Center, TextYAlignment = Enum.TextYAlignment.Center, TextStrokeTransparency = 0, TextStrokeColor3 = Color3.fromRGB(255,255,255), ZIndex = 1008, TextColor3 = cfg.Theme.Accent, TextScaled = true, TextSize = 20})
 
     -- Content area
     local contentYStart = dividerY + 8
-    local contentArea = new("Frame", {Parent = Frame, Size = UDim2.new(1,0,1, -contentYStart), Position = UDim2.new(0,0,0,contentYStart), BackgroundTransparency = 1})
+    local contentArea = new("Frame", {Parent = Frame, Size = UDim2.new(1,0,1, -contentYStart), Position = UDim2.new(0,0,0,contentYStart), BackgroundTransparency = 1, ZIndex = 1001})
     new("UIPadding", {Parent = contentArea, PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,12)})
     local pages = {}
     local tabList = {}
     local darkTabText = darkenColor(cfg.Theme.Text, 0.18)
 
     -- Tab scrolling
-    local tabScroll = new("ScrollingFrame", {Parent = TabsHolder, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, ScrollBarThickness = 0, ScrollBarImageTransparency = 1, AutomaticCanvasSize = Enum.AutomaticSize.X})
+    local tabScroll = new("ScrollingFrame", {Parent = TabsHolder, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, ScrollBarThickness = 0, ScrollBarImageTransparency = 1, AutomaticCanvasSize = Enum.AutomaticSize.X, ZIndex = 1001})
     local padding = 8
     local listLayout = new("UIListLayout", {Parent = tabScroll, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,padding), SortOrder = Enum.SortOrder.LayoutOrder})
     listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
@@ -314,11 +318,12 @@ function HwanUI:CreateWindow(title, opts)
             TextXAlignment = Enum.TextXAlignment.Center,
             TextYAlignment = Enum.TextYAlignment.Center,
             AutoButtonColor = false,
-            BorderSizePixel = 0
+            BorderSizePixel = 0,
+            ZIndex = 1001,
         })
         new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,10)})
 
-        local content = new("Frame", {Parent = contentArea, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false})
+        local content = new("Frame", {Parent = contentArea, Size = UDim2.new(1,0,1,0), BackgroundTransparency = 1, Visible = false, ZIndex = 1001})
         new("UIListLayout", {Parent = content, FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0,10)})
         new("UIPadding", {Parent = content, PaddingLeft = UDim.new(0,6), PaddingRight = UDim.new(0,6), PaddingTop = UDim.new(0,6)})
 
@@ -433,7 +438,8 @@ function HwanUI:CreateWindow(title, opts)
 
             local function createPanel()
                 if panel and panel.Parent then pcall(function() panel:Destroy() end) end
-                panel = new("Frame", {Parent = screenGui, Size = UDim2.new(0,220,0, 16 + #options*32), BackgroundColor3 = cfg.Theme.InfoInner, ZIndex = 200, BackgroundTransparency = 1})
+                -- increased ZIndex so dropdown panels are above other UI
+                panel = new("Frame", {Parent = screenGui, Size = UDim2.new(0,220,0, 16 + #options*32), BackgroundColor3 = cfg.Theme.InfoInner, ZIndex = 10050, BackgroundTransparency = 1})
                 new("UICorner", {Parent = panel, CornerRadius = UDim.new(0,8)})
                 local stroke = new("UIStroke", {Parent = panel}); stroke.Color = Color3.fromRGB(20,20,20); stroke.Thickness = 2; stroke.Transparency = 0.8
                 -- position
@@ -450,7 +456,7 @@ function HwanUI:CreateWindow(title, opts)
                 end)
                 -- populate
                 for i,opt in ipairs(options) do
-                    local row = new("TextButton", {Parent = panel, Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0,6,0, 8 + (i-1)*32), BackgroundColor3 = cfg.Theme.InfoInner, Text = tostring(opt), Font = Enum.Font.SourceSans, TextSize = 15, TextColor3 = cfg.Theme.Text, AutoButtonColor = false})
+                    local row = new("TextButton", {Parent = panel, Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0,6,0, 8 + (i-1)*32), BackgroundColor3 = cfg.Theme.InfoInner, Text = tostring(opt), Font = Enum.Font.SourceSans, TextSize = 15, TextColor3 = cfg.Theme.Text, AutoButtonColor = false, ZIndex = 10051})
                     new("UICorner", {Parent = row, CornerRadius = UDim.new(0,6)})
                     row.TextTruncate = Enum.TextTruncate.AtEnd; row.TextWrapped = false
                     row.MouseEnter:Connect(function() tween(row, {BackgroundColor3 = brightenColor(cfg.Theme.InfoInner, 0.06)}, 0.12, cfg.TweenStyle, cfg.TweenDir) end)
@@ -769,11 +775,12 @@ function HwanUI:CreateWindow(title, opts)
         local text = table.remove(notifQueue, 1)
         if not text then return end
         notifShowing = true
-        local notif = new("Frame", {Parent = screenGui, Size = UDim2.new(0, 240, 0, 64), Position = UDim2.new(1, -260, 1, -96), BackgroundColor3 = InfoInner.BackgroundColor3, BorderSizePixel = 0, ZIndex = 120})
+        -- ensure notif above other UI
+        local notif = new("Frame", {Parent = screenGui, Size = UDim2.new(0, 240, 0, 64), Position = UDim2.new(1, -260, 1, -96), BackgroundColor3 = InfoInner.BackgroundColor3, BorderSizePixel = 0, ZIndex = 10060})
         new("UICorner", {Parent = notif, CornerRadius = UDim.new(0,8)})
         new("UIStroke", {Parent = notif, Color = Color3.fromRGB(18,18,18), Thickness = 2, Transparency = 0.75})
-        local header = new("TextLabel", {Parent = notif, Size = UDim2.new(1, -12, 0, 26), Position = UDim2.new(0,10,0,10), BackgroundTransparency = 1, Font = TitleMain.Font, TextSize = 20, Text = cfg.Title, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = cfg.Theme.Text, ZIndex = 121})
-        local body = new("TextLabel", {Parent = notif, Size = UDim2.new(1, -12, 0, 26), Position = UDim2.new(0,10,0,32), BackgroundTransparency = 1, Font = Enum.Font.SourceSans, TextSize = 17, Text = text, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = cfg.Theme.Text, ZIndex = 121})
+        local header = new("TextLabel", {Parent = notif, Size = UDim2.new(1, -12, 0, 26), Position = UDim2.new(0,10,0,10), BackgroundTransparency = 1, Font = TitleMain.Font, TextSize = 20, Text = cfg.Title, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = cfg.Theme.Text, ZIndex = 10061})
+        local body = new("TextLabel", {Parent = notif, Size = UDim2.new(1, -12, 0, 26), Position = UDim2.new(0,10,0,32), BackgroundTransparency = 1, Font = Enum.Font.SourceSans, TextSize = 17, Text = text, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = cfg.Theme.Text, ZIndex = 10061})
         notif.BackgroundTransparency = 1; header.TextTransparency = 1; body.TextTransparency = 1
         tween(notif, {BackgroundTransparency = 0}, 0.12, cfg.TweenStyle, cfg.TweenDir)
         tween(header, {TextTransparency = 0}, 0.12, cfg.TweenStyle, cfg.TweenDir)
