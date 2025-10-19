@@ -1,5 +1,5 @@
 -- HwanUI.lua
--- Updated: fix rounding, divider position, tab layout (show 4 tabs fully), smooth scrolling, rotating header/icon gradient
+-- Finalized: tab sizing (4-tab standard), scroll when >3, selected tab highlight, SourceSansBold fonts, dropdown/slider/section, other UX tweaks
 
 local HwanUI = {}
 HwanUI.__index = HwanUI
@@ -46,7 +46,6 @@ local function new(class, props)
                 pcall(function() inst[k] = v end)
             end
         else
-            -- treat props as Parent
             pcall(function() inst.Parent = props end)
         end
     end
@@ -218,48 +217,52 @@ function HwanUI:CreateWindow(title, opts)
     new("UIPadding", {Parent = contentArea, PaddingLeft = UDim.new(0,8), PaddingRight = UDim.new(0,8), PaddingTop = UDim.new(0,6), PaddingBottom = UDim.new(0,12)})
     local pages = {}
     local tabList = {}
+    local darkTabText = darkenColor(cfg.Theme.Text, 0.18) -- unselected tab text color (slightly darker)
 
     -- Tab scroll
     local tabScroll = new("ScrollingFrame", {Parent = TabsHolder, Size = UDim2.new(1,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundTransparency = 1, ScrollBarThickness = 0, ScrollBarImageTransparency = 1, CanvasSize = UDim2.new(0,0,0,0), AutomaticCanvasSize = Enum.AutomaticSize.X, HorizontalScrollBarInset = Enum.ScrollBarInset.Always})
     local padding = 8
-    local defaultBtnW = 96
     local listLayout = new("UIListLayout", {Parent = tabScroll, FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0,padding), SortOrder = Enum.SortOrder.LayoutOrder})
     listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-    -- helper to update layout: ensure 4 tabs visible fully when <=4
+    -- helper to update layout: use 4-tab standard for slot width, keep that size for all tabs
     local function updateTabsLayout()
         local count = #tabList
         local avail = math.max(tabScroll.AbsoluteSize.X, cfg.Width) -- fallback
         if count == 0 then return end
-        if count <= 4 then
-            -- compute width so all tabs fit centered
-            local totalPadding = padding * (count + 1)
-            local width = math.floor((avail - totalPadding) / count)
-            width = clamp(width, 64, 180)
-            for _, t in ipairs(tabList) do
-                if t and t.Button then
-                    t.Button.Size = UDim2.new(0, width, 0, 36)
-                end
+
+        -- compute slot width using the 4-tab standard
+        local fixedSlots = 4
+        local totalPaddingFor4 = padding * (fixedSlots + 1)
+        local slotWidth = math.floor((avail - totalPaddingFor4) / fixedSlots)
+        slotWidth = clamp(slotWidth, 64, 180)
+
+        -- apply same width to ALL tabs
+        for _, t in ipairs(tabList) do
+            if t and t.Button then
+                t.Button.Size = UDim2.new(0, slotWidth, 0, 36)
             end
+        end
+
+        -- compute canvas size for actual number of tabs
+        local totalWidth = padding * (#tabList + 1) + #tabList * slotWidth
+
+        if #tabList > 3 then
+            -- allow scrolling when more than 3 tabs
             tabScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
-            tabScroll.CanvasSize = UDim2.new(0, totalPadding + count * width, 0, 0)
-            -- center by setting CanvasPosition so left padding is half remaining (handled by UIListLayout with Center alignment)
+            tabScroll.CanvasSize = UDim2.new(0, totalWidth, 0, 0)
         else
-            -- many tabs: use default width and allow scrolling
-            for _, t in ipairs(tabList) do
-                if t and t.Button then
-                    t.Button.Size = UDim2.new(0, defaultBtnW, 0, 36)
-                end
-            end
-            -- force AutomaticCanvasSize so it updates with added buttons
-            tabScroll.AutomaticCanvasSize = Enum.AutomaticSize.X
+            -- 3 or fewer: center them, disable scrolling
+            tabScroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+            tabScroll.CanvasSize = UDim2.new(0, math.max(totalWidth, avail), 0, 0)
+            tabScroll.CanvasPosition = Vector2.new(0,0)
         end
     end
 
     -- call update when size changes
     table.insert(conns, tabScroll:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() updateTabsLayout() end))
 
-    -- drag-to-scroll and input handling
+    -- drag-to-scroll and input handling (keeps previous behavior)
     do
         local dragging = false
         local dragStart = Vector2.new()
@@ -299,11 +302,9 @@ function HwanUI:CreateWindow(title, opts)
             local scrollAbs = tabScroll.AbsolutePosition.X
             local scrollW = tabScroll.AbsoluteSize.X
             local curCanvas = tabScroll.CanvasPosition.X
-            -- center the button if possible
             local target = btnAbs - scrollAbs + curCanvas - (scrollW/2 - btnW/2)
             local maxX = math.max(tabScroll.AbsoluteCanvasSize.X - tabScroll.AbsoluteSize.X, 0)
             target = clamp(target, 0, maxX)
-            -- tween CanvasPosition
             pcall(function()
                 TweenService:Create(tabScroll, TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {CanvasPosition = Vector2.new(target,0)}):Play()
             end)
@@ -318,9 +319,9 @@ function HwanUI:CreateWindow(title, opts)
             Text = name,
             Size = UDim2.new(0, 96, 0, 36),
             BackgroundColor3 = cfg.Theme.TabBg,
-            TextColor3 = cfg.Theme.Text,
-            Font = Enum.Font.Gotham,
-            TextSize = 16,
+            TextColor3 = darkTabText,
+            Font = Enum.Font.SourceSansBold,
+            TextSize = 18,
             TextXAlignment = Enum.TextXAlignment.Center,
             TextYAlignment = Enum.TextYAlignment.Center,
             AutoButtonColor = false,
@@ -332,16 +333,26 @@ function HwanUI:CreateWindow(title, opts)
         new("UIListLayout", {Parent = content, FillDirection = Enum.FillDirection.Vertical, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0,10)})
         new("UIPadding", {Parent = content, PaddingLeft = UDim.new(0,6), PaddingRight = UDim.new(0,6), PaddingTop = UDim.new(0,6)})
 
+        table.insert(pages, content)
+
         local tab = {Name = name, Button = btn, Content = content}
 
         -- hover
         local enterConn = btn.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(btn, {BackgroundColor3 = brightenColor(cfg.Theme.TabBg, 0.06)}, 0.12) end end)
         table.insert(conns, enterConn)
-        local leaveConn = btn.MouseLeave:Connect(function() if btn ~= nil then tween(btn, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12) end end)
+        local leaveConn = btn.MouseLeave:Connect(function() if btn ~= nil then
+            -- if not selected, return to base color
+            if btn.TextColor3 ~= Color3.fromRGB(255,255,255) then
+                tween(btn, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12)
+            else
+                -- if selected, keep it slightly bright
+                tween(btn, {BackgroundColor3 = brightenColor(cfg.Theme.TabBg, 0.08)}, 0.12)
+            end
+        end end)
         table.insert(conns, leaveConn)
 
         function tab:CreateButton(label, callback)
-            local b = new("TextButton", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundColor3 = cfg.Theme.Btn, TextColor3 = cfg.Theme.Text, Text = label, Font = Enum.Font.Gotham, TextSize = 16, AutoButtonColor=false })
+            local b = new("TextButton", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundColor3 = cfg.Theme.Btn, TextColor3 = cfg.Theme.Text, Text = label, Font = Enum.Font.SourceSansBold, TextSize = 16, AutoButtonColor=false })
             new("UICorner", {Parent = b, CornerRadius = UDim.new(0,10)})
             local be = b.MouseEnter:Connect(function() if UserInputService.MouseEnabled then tween(b, {BackgroundColor3 = brightenColor(cfg.Theme.Btn, 0.06)}, 0.12) end end)
             table.insert(conns, be)
@@ -359,19 +370,22 @@ function HwanUI:CreateWindow(title, opts)
 
         function tab:CreateToggle(label, initial, callback)
             local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,30), BackgroundTransparency = 1})
-            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
+            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -58, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
             local toggleBg = new("Frame", {Parent = frame, Size = UDim2.new(0,46,0,26), Position = UDim2.new(1, -50, 0.5, -13), BackgroundColor3 = cfg.Theme.ToggleBg, BorderSizePixel = 0})
             new("UICorner", {Parent = toggleBg, CornerRadius = UDim.new(0,12)})
-            local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)})
+            -- dot colors: OFF should be darker, ON should be brighter
+            local dotOffColor = darkenColor(Color3.fromRGB(200,200,200), 0.16) -- darker when OFF
+            local dotOnColor  = Color3.fromRGB(230,230,230) -- brighter when ON
+            local dot = new("Frame", {Parent = toggleBg, Size = UDim2.new(0,18,0,18), Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = dotOffColor})
             new("UICorner", {Parent = dot, CornerRadius = UDim.new(1,0)})
 
             local state = initial and true or false
             local function setState(s, silent)
                 state = s
                 if s then
-                    tween(dot, {Position = UDim2.new(1, -22, 0.5, -9), BackgroundColor3 = darkenColor(Color3.fromRGB(230,230,230), 0.12)}, 0.12)
+                    tween(dot, {Position = UDim2.new(1, -22, 0.5, -9), BackgroundColor3 = dotOnColor}, 0.12)
                 else
-                    tween(dot, {Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = Color3.fromRGB(230,230,230)}, 0.12)
+                    tween(dot, {Position = UDim2.new(0,4,0.5,-9), BackgroundColor3 = dotOffColor}, 0.12)
                 end
                 if callback and not silent then pcall(callback, state) end
             end
@@ -385,8 +399,109 @@ function HwanUI:CreateWindow(title, opts)
         end
 
         function tab:CreateLabel(text)
-            local l = new("TextLabel", {Parent = self.Content, Size = UDim2.new(1,0,0,20), Text = text, BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.Gotham, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
+            local l = new("TextLabel", {Parent = self.Content, Size = UDim2.new(1,0,0,20), Text = text, BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left})
             return l
+        end
+
+        -- Section: a subtle labeled divider (visual grouping)
+        function tab:CreateSection(title)
+            local sec = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,40), BackgroundTransparency = 1})
+            local bg = new("Frame", {Parent = sec, Size = UDim2.new(1,0,0,32), Position = UDim2.new(0,0,0,4), BackgroundColor3 = Color3.fromRGB(28,28,28), BorderSizePixel = 0})
+            new("UICorner", {Parent = bg, CornerRadius = UDim.new(0,8)})
+            local lbl = new("TextLabel", {Parent = bg, Text = title, Size = UDim2.new(1,-12,1,0), Position = UDim2.new(0,8,0,0), BackgroundTransparency = 1, Font = Enum.Font.SourceSansBold, TextSize = 15, TextColor3 = cfg.Theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
+            return sec
+        end
+
+        -- Dropdown: opens a side-panel (floating) next to main GUI
+        function tab:CreateDropdown(label, options, callback)
+            options = options or {}
+            local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,36), BackgroundTransparency = 1})
+            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -120, 1, 0), BackgroundTransparency = 1, TextColor3 = cfg.Theme.Text, Font = Enum.Font.SourceSansBold, TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left})
+            local btn = new("TextButton", {Parent = frame, Size = UDim2.new(0, 112, 0, 28), Position = UDim2.new(1, -116, 0.5, -14), BackgroundColor3 = cfg.Theme.Btn, Text = "Select", Font = Enum.Font.SourceSansBold, TextSize = 14, TextColor3 = cfg.Theme.Text, AutoButtonColor = false})
+            new("UICorner", {Parent = btn, CornerRadius = UDim.new(0,8)})
+
+            -- create panel (hidden) parented to screenGui so it can be placed beside main
+            local panel
+            local function showPanel()
+                if panel and panel.Parent then panel:Destroy() end
+                panel = new("Frame", {Parent = screenGui, Size = UDim2.new(0,180,0, 24 + #options*32), BackgroundColor3 = cfg.Theme.InfoInner, ZIndex = 200})
+                new("UICorner", {Parent = panel, CornerRadius = UDim.new(0,8)})
+                -- position panel to the right of Frame (main)
+                pcall(function()
+                    local absX = Frame.AbsolutePosition.X
+                    local absY = Frame.AbsolutePosition.Y
+                    local x = absX + Frame.AbsoluteSize.X + 8
+                    local y = absY + (TitleFrame.AbsoluteSize.Y or 0) + 8
+                    panel.Position = UDim2.new(0, x, 0, y)
+                end)
+                for i, opt in ipairs(options) do
+                    local row = new("TextButton", {Parent = panel, Size = UDim2.new(1, -12, 0, 28), Position = UDim2.new(0,6,0, 8 + (i-1)*32), BackgroundColor3 = cfg.Theme.InfoInner, Text = tostring(opt), Font = Enum.Font.SourceSansBold, TextSize = 15, TextColor3 = cfg.Theme.Text, AutoButtonColor = false})
+                    new("UICorner", {Parent = row, CornerRadius = UDim.new(0,6)})
+                    row.MouseEnter:Connect(function() tween(row, {BackgroundColor3 = brightenColor(cfg.Theme.InfoInner, 0.06)}, 0.12) end)
+                    row.MouseLeave:Connect(function() tween(row, {BackgroundColor3 = cfg.Theme.InfoInner}, 0.12) end)
+                    row.MouseButton1Click:Connect(function()
+                        if callback then pcall(callback, opt) end
+                        btn.Text = tostring(opt)
+                        pcall(function() panel:Destroy() end)
+                    end)
+                end
+            end
+
+            local openConn = btn.MouseButton1Click:Connect(function()
+                showPanel()
+            end)
+            table.insert(conns, openConn)
+
+            return {UI = frame, Set = function(v) btn.Text = tostring(v) end}
+        end
+
+        -- Slider: basic horizontal slider with drag and callback (value in [min,max])
+        function tab:CreateSlider(label, minVal, maxVal, default, callback)
+            minVal = minVal or 0; maxVal = maxVal or 100; default = default or minVal
+            local frame = new("Frame", {Parent = self.Content, Size = UDim2.new(1,0,0,40), BackgroundTransparency = 1})
+            local lbl = new("TextLabel", {Parent = frame, Text = label, Size = UDim2.new(1, -12, 0, 14), Position = UDim2.new(0,6,0,0), BackgroundTransparency = 1, Font = Enum.Font.SourceSansBold, TextSize = 14, TextColor3 = cfg.Theme.Text, TextXAlignment = Enum.TextXAlignment.Left})
+            local barBg = new("Frame", {Parent = frame, Size = UDim2.new(1,-24,0,12), Position = UDim2.new(0,12,0,20), BackgroundColor3 = cfg.Theme.ToggleBg, BorderSizePixel = 0})
+            new("UICorner", {Parent = barBg, CornerRadius = UDim.new(0,6)})
+            local fill = new("Frame", {Parent = barBg, Size = UDim2.new(0,0,1,0), Position = UDim2.new(0,0,0,0), BackgroundColor3 = brightenColor(cfg.Theme.Btn, 0.08)})
+            new("UICorner", {Parent = fill, CornerRadius = UDim.new(0,6)})
+            local knob = new("Frame", {Parent = barBg, Size = UDim2.new(0,14,0,14), Position = UDim2.new(0, -7, 0.5, -7), BackgroundColor3 = Color3.fromRGB(240,240,240)})
+            new("UICorner", {Parent = knob, CornerRadius = UDim.new(1,0)})
+
+            local function setValueFromPercent(p)
+                p = clamp(p, 0, 1)
+                fill.Size = UDim2.new(p,0,1,0)
+                knob.Position = UDim2.new(p, -7, 0.5, -7)
+                local value = minVal + (maxVal - minVal) * p
+                if callback then pcall(callback, value) end
+            end
+
+            -- init default
+            local defaultPct = (default - minVal) / math.max(1, (maxVal - minVal))
+            setValueFromPercent(defaultPct)
+
+            -- dragging logic
+            local dragging = false
+            knob.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    input.Changed:Connect(function()
+                        if input.UserInputState == Enum.UserInputState.End then dragging = false end
+                    end)
+                end
+            end)
+            local moveConn
+            moveConn = UserInputService.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    local absX = input.Position.X
+                    local left = barBg.AbsolutePosition.X
+                    local width = barBg.AbsoluteSize.X
+                    local pct = (absX - left) / math.max(1, width)
+                    setValueFromPercent(pct)
+                end
+            end)
+            table.insert(conns, moveConn)
+
+            return {UI = frame, Set = function(v) local p = (v - minVal) / (maxVal - minVal); setValueFromPercent(p) end}
         end
 
         table.insert(tabList, tab)
@@ -397,7 +512,7 @@ function HwanUI:CreateWindow(title, opts)
             for _,t in ipairs(tabList) do
                 t.Content.Visible = false
                 tween(t.Button, {BackgroundColor3 = cfg.Theme.TabBg}, 0.12)
-                if t.Button then t.Button.TextColor3 = cfg.Theme.Text end
+                if t.Button then t.Button.TextColor3 = darkTabText end
             end
             tab.Content.Visible = true
             tween(tab.Button, {BackgroundColor3 = brightenColor(cfg.Theme.TabBg, 0.08)}, 0.12)
@@ -535,7 +650,7 @@ function HwanUI:CreateWindow(title, opts)
     local finalSize = UDim2.new(0, cfg.Width, 0, cfg.Height)
     local openTween = TweenService:Create(Frame, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = finalSize})
 
-    -- Notifications (unchanged)
+    -- Notifications
     local function processNextNotification()
         if notifShowing then return end
         local text = table.remove(notifQueue, 1)
@@ -572,7 +687,7 @@ function HwanUI:CreateWindow(title, opts)
         processNextNotification()
     end
 
-    -- Key system (unchanged)
+    -- Key system
     local function createKeyUI(onAuth)
         local kFrame = new("Frame", {Parent = screenGui, Name = "KeyPrompt", Size = UDim2.new(0, 460, 0, 140), Position = UDim2.new(0.5, -230, 0.38, -70), BackgroundColor3 = cfg.Theme.Main, BorderSizePixel = 0, ZIndex = 100, Active = true})
         new("UICorner", {Parent = kFrame, CornerRadius = UDim.new(0,10)})
